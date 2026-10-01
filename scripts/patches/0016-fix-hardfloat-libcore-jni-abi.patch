@@ -1,0 +1,64 @@
+diff --git a/libcore/luni/src/main/native/java_lang_Math.c b/libcore/luni/src/main/native/java_lang_Math.c
+index 14f18c0..651f440 100644
+--- a/libcore/luni/src/main/native/java_lang_Math.c
++++ b/libcore/luni/src/main/native/java_lang_Math.c
+@@ -10,6 +10,36 @@
+ #include <stdlib.h>
+ #include <math.h>
+ 
++/* Dalvik CallEABI.S uses the base AAPCS at every JNI boundary. */
++#define DALVIK_JNI_ABI __attribute__((pcs("aapcs")))
++
++static jdouble jsin(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jcos(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jtan(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jasin(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jacos(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jatan(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jexp(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jlog(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jsqrt(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jieee_remainder(JNIEnv*, jclass, jdouble, jdouble)
++        DALVIK_JNI_ABI;
++static jdouble jfloor(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jceil(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jrint(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jatan2(JNIEnv*, jclass, jdouble, jdouble) DALVIK_JNI_ABI;
++static jdouble jpow(JNIEnv*, jclass, jdouble, jdouble) DALVIK_JNI_ABI;
++static jdouble jsinh(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jtanh(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jcosh(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jlog10(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jcbrt(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jexpm1(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jhypot(JNIEnv*, jclass, jdouble, jdouble) DALVIK_JNI_ABI;
++static jdouble jlog1p(JNIEnv*, jclass, jdouble) DALVIK_JNI_ABI;
++static jdouble jnextafter(JNIEnv*, jclass, jdouble, jdouble) DALVIK_JNI_ABI;
++static jfloat jnextafterf(JNIEnv*, jclass, jfloat, jfloat) DALVIK_JNI_ABI;
++
+ /* native public static double sin(double a); */
+ static jdouble jsin(JNIEnv* env, jclass clazz, jdouble a)
+ {
+@@ -202,3 +232,5 @@ int register_java_lang_Math(JNIEnv* env)
+     return jniRegisterNativeMethods(env, "java/lang/Math", gMethods,
+         NELEM(gMethods));
+ }
++
++#undef DALVIK_JNI_ABI
+diff --git a/libcore/luni/src/main/native/java_lang_Float.c b/libcore/luni/src/main/native/java_lang_Float.c
+index 3b79fc7..23efcc2 100644
+--- a/libcore/luni/src/main/native/java_lang_Float.c
++++ b/libcore/luni/src/main/native/java_lang_Float.c
+@@ -26,6 +26,12 @@ static int IsNaN(unsigned bits)
+         ||  (bits >= 0xff800001U && bits <= 0xffffffffU));
+ }
+ 
++/* Dalvik CallEABI.S uses the base AAPCS at every JNI boundary. */
++#define DALVIK_JNI_ABI __attribute__((pcs("aapcs")))
++static jint floatToIntBits(JNIEnv*, jclass, jfloat) DALVIK_JNI_ABI;
++static jint floatToRawBits(JNIEnv*, jclass, jfloat) DALVIK_JNI_ABI;
++static jfloat intBitsToFloat(JNIEnv*, jclass, jint) DALVIK_JNI_ABI;
++
+ /*
+  * public static native int floatToIntBits(float value)
+  */

@@ -1,0 +1,65 @@
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -37,7 +37,5 @@ import android.os.*;
+ import android.provider.Contacts.People;
+ import android.provider.Settings;
+-import android.server.BluetoothA2dpService;
+-import android.server.BluetoothService;
+ // android.server.search.SearchManagerService (core/java/android/server/search/) is
+ // deferred -- it cascades into SearchDialog/SuggestionsAdapter -> android.text.Html
+ // -> org.ccil.cowan.tagsoup, which build_framework_jar.sh already defers wholesale
+@@ -93,8 +91,6 @@ class ServerThread extends Thread {
+         IPackageManager pm = null;
+         Context context = null;
+         WindowManagerService wm = null;
+-        BluetoothService bluetooth = null;
+-        BluetoothA2dpService bluetoothA2dp = null;
+         HeadsetObserver headset = null;
+         DockObserver dock = null;
+ 
+@@ -188,39 +184,11 @@ class ServerThread extends Thread {
+                 Log.e(TAG, "Failure starting Window Manager (expected -- no compositor built yet)", e);
+             }
+ 
+-            // Same reasoning as Window Manager above: this device has no
+-            // Bluetooth hardware, and AndroidRuntime.cpp's gRegJNI[] never
+-            // registers android_server_Bluetooth{Service,EventLoop,A2dpService}
+-            // (see that file's own comment). new BluetoothService(context)
+-            // is expected to throw UnsatisfiedLinkError immediately.
+-            try {
+-                // Skip Bluetooth if we have an emulator kernel
+-                // TODO: Use a more reliable check to see if this product should
+-                // support Bluetooth - see bug 988521
+-                if (SystemProperties.get("ro.kernel.qemu").equals("1")) {
+-                    Log.i(TAG, "Registering null Bluetooth Service (emulator)");
+-                    ServiceManager.addService(BluetoothAdapter.BLUETOOTH_SERVICE, null);
+-                } else if (factoryTest == SystemServer.FACTORY_TEST_LOW_LEVEL) {
+-                    Log.i(TAG, "Registering null Bluetooth Service (factory test)");
+-                    ServiceManager.addService(BluetoothAdapter.BLUETOOTH_SERVICE, null);
+-                } else {
+-                    Log.i(TAG, "Bluetooth Service");
+-                    bluetooth = new BluetoothService(context);
+-                    ServiceManager.addService(BluetoothAdapter.BLUETOOTH_SERVICE, bluetooth);
+-                    bluetooth.initAfterRegistration();
+-                    bluetoothA2dp = new BluetoothA2dpService(context, bluetooth);
+-                    ServiceManager.addService(BluetoothA2dpService.BLUETOOTH_A2DP_SERVICE,
+-                                              bluetoothA2dp);
+-
+-                    int bluetoothOn = Settings.Secure.getInt(mContentResolver,
+-                        Settings.Secure.BLUETOOTH_ON, 0);
+-                    if (bluetoothOn > 0) {
+-                        bluetooth.enable();
+-                    }
+-                }
+-            } catch (Throwable e) {
+-                Log.e(TAG, "Failure starting Bluetooth Service (expected -- no Bluetooth hardware)", e);
+-            }
++            // Nintendo 3DS has no Bluetooth hardware.  Do not instantiate
++            // framework Bluetooth classes: their static initializers require
++            // native registrations intentionally absent from this port.
++            Log.i(TAG, "Registering null Bluetooth Service (no hardware)");
++            ServiceManager.addService(BluetoothAdapter.BLUETOOTH_SERVICE, null);
+ 
+         } catch (RuntimeException e) {
+             Log.e("System", "Failure starting core service", e);

@@ -1,0 +1,26 @@
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -23,7 +23,6 @@ import com.android.internal.os.SamplingProfilerIntegration;
+ import dalvik.system.VMRuntime;
+ 
+ import android.app.ActivityManagerNative;
+-import android.bluetooth.BluetoothAdapter;
+ import android.content.ComponentName;
+ import android.content.ContentResolver;
+ import android.content.ContentService;
+@@ -183,10 +182,7 @@ class ServerThread extends Thread {
+             } catch (Throwable e) {
+-                Log.e(TAG, "Failure starting Window Manager (expected -- no compositor built yet)", e);
++                Log.e(TAG, "Failure starting Window Manager", e);
+             }
+ 
+-            // Nintendo 3DS has no Bluetooth hardware.  Do not instantiate
+-            // framework Bluetooth classes: their static initializers require
+-            // native registrations intentionally absent from this port.
+-            Log.i(TAG, "Registering null Bluetooth Service (no hardware)");
+-            ServiceManager.addService(BluetoothAdapter.BLUETOOTH_SERVICE, null);
++            // Nintendo 3DS has no Bluetooth hardware; do not load or register it.
++            Log.i(TAG, "Bluetooth Service disabled (no hardware)");
+ 
+         } catch (RuntimeException e) {

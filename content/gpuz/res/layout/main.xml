@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="#101418">
+
+    <!-- Top Tab Header -->
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="28dip"
+        android:orientation="horizontal"
+        android:background="#1A222C">
+        <Button
+            android:id="@+id/tab_gpu_btn"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            android:layout_height="fill_parent"
+            android:text="GPU"
+            android:textSize="10sp"
+            android:textColor="#00E5FF"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/tab_specs_btn"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            android:layout_height="fill_parent"
+            android:text="SPECS"
+            android:textSize="10sp"
+            android:textColor="#FFFFFF" />
+        <Button
+            android:id="@+id/tab_perf_btn"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            android:layout_height="fill_parent"
+            android:text="PERF"
+            android:textSize="10sp"
+            android:textColor="#FFFFFF" />
+        <Button
+            android:id="@+id/tab_bench_btn"
+            android:layout_width="0dip"
+            android:layout_weight="1"
+            android:layout_height="fill_parent"
+            android:text="TESTS"
+            android:textSize="10sp"
+            android:textColor="#FFD700" />
+    </LinearLayout>
+
+    <!-- Main Content Display -->
+    <FrameLayout
+        android:id="@+id/content_frame"
+        android:layout_width="fill_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1">
+
+        <!-- Text Info ScrollView -->
+        <ScrollView
+            android:id="@+id/info_scroll"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:padding="6dip">
+            <TextView
+                android:id="@+id/info_text"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#E0E6ED"
+                android:textSize="11sp"
+                android:typeface="monospace" />
+        </ScrollView>
+
+        <!-- Benchmark Tests Container -->
+        <LinearLayout
+            android:id="@+id/bench_layout"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Test Control Bar -->
+            <LinearLayout
+                android:layout_width="fill_parent"
+                android:layout_height="26dip"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/btn_cube"
+                    android:layout_width="0dip"
+                    android:layout_weight="1"
+                    android:layout_height="fill_parent"
+                    android:text="3D Cube"
+                    android:textSize="9sp" />
+                <Button
+                    android:id="@+id/btn_prism"
+                    android:layout_width="0dip"
+                    android:layout_weight="1"
+                    android:layout_height="fill_parent"
+                    android:text="Textured"
+                    android:textSize="9sp" />
+                <Button
+                    android:id="@+id/btn_particles"
+                    android:layout_width="0dip"
+                    android:layout_weight="1"
+                    android:layout_height="fill_parent"
+                    android:text="Particles"
+                    android:textSize="9sp" />
+                <Button
+                    android:id="@+id/btn_fillrate"
+                    android:layout_width="0dip"
+                    android:layout_weight="1"
+                    android:layout_height="fill_parent"
+                    android:text="2D Fill"
+                    android:textSize="9sp" />
+            </LinearLayout>
+
+            <!-- Embedded 3D GL Benchmark Surface / View -->
+            <FrameLayout
+                android:id="@+id/bench_surface_holder"
+                android:layout_width="fill_parent"
+                android:layout_height="0dip"
+                android:layout_weight="1" />
+
+            <!-- Benchmark Live Stats Banner -->
+            <TextView
+                android:id="@+id/bench_stats_text"
+                android:layout_width="fill_parent"
+                android:layout_height="18dip"
+                android:background="#0A0E14"
+                android:textColor="#00FF66"
+                android:textSize="10sp"
+                android:gravity="center_vertical"
+                android:paddingLeft="4dip"
+                android:typeface="monospace"
+                android:text="Benchmark Ready" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Bottom Status Bar -->
+    <TextView
+        android:id="@+id/status_bar_text"
+        android:layout_width="fill_parent"
+        android:layout_height="16dip"
+        android:background="#0D1217"
+        android:textColor="#88A0B8"
+        android:textSize="9sp"
+        android:gravity="center_vertical"
+        android:paddingLeft="4dip"
+        android:text="GPU-Z 1.0 | Nintendo 3DS HW Acceleration" />
+</LinearLayout>

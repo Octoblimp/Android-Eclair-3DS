@@ -1,0 +1,19 @@
+diff --git a/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh b/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
+--- a/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
++++ b/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
+@@ -75,10 +75,11 @@ sync
+ sync
+ kmsg "powering off now"
+ 
+-poweroff -f
++/sbin/poweroff -f
++poweroff_rc=$?
+ 
+-# Only reached if reboot(RB_POWER_OFF) somehow failed; let the kernel's
+-# forced path take over.
+-kmsg "poweroff -f returned -- falling back to the kernel"
++# The START input driver has an independent 20-second kernel deadline, so a
++# userspace reboot failure cannot leave the console running indefinitely.
++kmsg "poweroff -f returned rc=$poweroff_rc -- kernel deadline remains armed"
+ 
+ # We are back in a (semi-)running system with nothing left to lose --

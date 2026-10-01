@@ -1,0 +1,27 @@
+# hid_buttons.kl -- New 3DS face/shoulder/D-pad buttons
+#
+# Device name confirmed directly from a real boot log: "input:
+# hid_buttons as /devices/platform/hid_buttons/input/input2". Matches
+# the gpio-keys-polled node in nintendo3ds.dtsi. Key numbers below are
+# the exact linux,code values from that DTS node (BTN_A/BTN_B/etc from
+# <dt-bindings/input/input.h>), Android keycode names/syntax confirmed
+# against a real AOSP key layout file
+# (frameworks/base/data/keyboards/Generic.kl) -- the .kl file format
+# has been stable since this era, exact Eclair-tagged copy of this
+# specific file wasn't locatable, syntax is not guessed.
+#
+# Not loaded by anything yet -- there's no Android EventHub running
+# until Phase 6. Staged here for that integration.
+
+key 304   HOME           # BTN_A: global Home
+key 305   B              # BTN_B: policy opens recent/running apps
+key 314   BUTTON_SELECT  # BTN_SELECT
+key 315   BUTTON_START   # BTN_START
+key 106   DPAD_RIGHT     # KEY_RIGHT
+key 105   DPAD_LEFT      # KEY_LEFT
+key 103   DPAD_UP        # KEY_UP
+key 108   DPAD_DOWN      # KEY_DOWN
+key 311   BUTTON_R1      # BTN_TR
+key 310   BUTTON_L1      # BTN_TL
+key 307   X              # BTN_X
+key 308   BACK           # BTN_Y: global Back

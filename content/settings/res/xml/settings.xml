@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:settings="http://schemas.android.com/apk/res/com.android.settings"
+    android:title="@string/settings_label"
+    android:key="parent">
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_wireless"
+        android:title="@string/wifi_settings">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.wifi.WifiSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_wireless"
+        android:title="3DSTelco Mobile Data"
+        android:summary="Configure an HTTPS calling and messaging server over Wi-Fi">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.MobileDataSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_wireless"
+        android:title="Wireless ADB"
+        android:summary="Root debugging over the connected Wi-Fi network">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.WirelessAdbSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_applications"
+        android:title="@string/applications_settings">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.ApplicationSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <!-- N3DS_DEV_DEFAULTS: developer options on by default, one tap away. -->
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_applications"
+        android:title="Developer options"
+        android:summary="USB debugging, stay awake, mock locations">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.DevelopmentSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_storage"
+        android:title="@string/storage_settings">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.deviceinfo.Memory" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_language"
+        android:title="@string/language_settings">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.LanguageSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_date_time"
+        android:title="@string/date_and_time_settings_title">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.DateTimeSettings" />
+    </com.android.settings.IconPreferenceScreen>
+
+    <com.android.settings.IconPreferenceScreen
+        settings:icon="@drawable/ic_settings_about"
+        android:title="@string/about_settings">
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.DeviceInfoSettings" />
+    </com.android.settings.IconPreferenceScreen>
+</PreferenceScreen>

@@ -1,0 +1,148 @@
+diff --git a/libc/netbsd/isc/android3ds_isc_stubs.c b/libc/netbsd/isc/android3ds_isc_stubs.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..0de81a0bbc4d7d20b5f7a55ae6deb99dac676598
+--- /dev/null
++++ b/libc/netbsd/isc/android3ds_isc_stubs.c
+@@ -0,0 +1,69 @@
++/*
++ * android3ds: stubs for ISC eventlib/DST symbols that AOSP Eclair's bionic
++ * references but does not ship.
++ *
++ * bionic/libc/netbsd/isc/ contains only ev_timers.c and ev_streams.c. Both
++ * are derived from ISC BIND's eventlib and call into the rest of that
++ * library -- the timer heap (heap.c), the memory cluster allocator
++ * (memcluster.c), the assertion handler (assertions.c) and the FD selector
++ * (ev_select.c). None of those files exist anywhere in the Eclair tree.
++ * Likewise nameser/ns_print.c calls __dst_s_dns_key_id() from the DST
++ * crypto library, which Eclair also does not ship.
++ *
++ * This was invisible upstream because libc was a shared library: the
++ * unresolved symbols simply sat in libc.so's dynamic symbol table and were
++ * never called, since nothing in bionic reaches the eventlib code paths
++ * that need them (res_send.c only uses the pure-arithmetic evNowTime /
++ * evConsTime / evSubTime / evCmpTime helpers, which happen to live in the
++ * same translation units). Our userspace is statically linked, so the
++ * linker drags those objects in whole and every one of these references
++ * becomes a hard error.
++ *
++ * These are therefore deliberately abort-on-call stubs, not no-ops: if one
++ * of them is ever actually reached it means real eventlib functionality is
++ * being used and the genuine ISC sources need to be ported, and a loud
++ * crash is far better than silently wrong DNS/timer behaviour. Reaching
++ * them should be impossible on the paths bionic actually uses.
++ */
++
++#include <stdlib.h>
++#include <unistd.h>
++
++#define ANDROID3DS_ISC_STUB(name)                                             \
++    void name(void);                                                          \
++    void name(void)                                                           \
++    {                                                                         \
++        static const char msg[] =                                             \
++            "android3ds: unimplemented ISC eventlib stub called: " #name       \
++            " -- port the real bionic/netbsd isc sources\n";                   \
++        write(2, msg, sizeof(msg) - 1);                                       \
++        abort();                                                              \
++    }
++
++/* eventlib: assertion handler (REQUIRE/INSIST macros) */
++ANDROID3DS_ISC_STUB(__assertion_failed)
++
++/* eventlib: internal debug printf and the UNUSED() helper */
++ANDROID3DS_ISC_STUB(__evPrintf)
++ANDROID3DS_ISC_STUB(UNUSED)
++
++/* eventlib: file-descriptor selector (ev_select.c) */
++ANDROID3DS_ISC_STUB(__evSelectFD)
++ANDROID3DS_ISC_STUB(__evDeselectFD)
++
++/* eventlib: timer heap (heap.c) */
++ANDROID3DS_ISC_STUB(__heap_new)
++ANDROID3DS_ISC_STUB(__heap_free)
++ANDROID3DS_ISC_STUB(__heap_insert)
++ANDROID3DS_ISC_STUB(__heap_delete)
++ANDROID3DS_ISC_STUB(__heap_element)
++ANDROID3DS_ISC_STUB(__heap_increased)
++ANDROID3DS_ISC_STUB(__heap_decreased)
++ANDROID3DS_ISC_STUB(__heap_for_each)
++
++/* eventlib: memory cluster allocator (memcluster.c) */
++ANDROID3DS_ISC_STUB(__memget)
++ANDROID3DS_ISC_STUB(__memput)
++
++/* DST crypto library, used by nameser/ns_print.c for DNSSEC key IDs */
++ANDROID3DS_ISC_STUB(__dst_s_dns_key_id)
+diff --git a/linker/linker.c b/linker/linker.c
+index 80b5d00faf2b292abaa8cd965cc39ca16b0e8a16..7917dc925c2e11e49c8c174e2c1ddba4b984c542 100644
+--- a/linker/linker.c
++++ b/linker/linker.c
+@@ -1538,6 +1538,7 @@ static int link_image(soinfo *si, unsigned wr_offset)
+     unsigned *d;
+     Elf32_Phdr *phdr = si->phdr;
+     int phnum = si->phnum;
++    int has_text_relocs = 0;
+ 
+     INFO("[ %5d linking %s ]\n", pid, si->name);
+     DEBUG("%5d si->base = 0x%08x si->flags = 0x%08x\n", pid,
+@@ -1692,11 +1693,31 @@ static int link_image(soinfo *si, unsigned wr_offset)
+             si->preinit_array_count = ((unsigned)*d) / sizeof(Elf32_Addr);
+             break;
+         case DT_TEXTREL:
+-            /* TODO: make use of this. */
+-            /* this means that we might have to write into where the text
+-             * segment was loaded during relocation... Do something with
+-             * it.
++            /* Upstream left this as "TODO: make use of this" and only
++             * printed a debug line, which is a latent crash for the MAIN
++             * EXECUTABLE specifically.
++             *
++             * Shared libraries are fine without it: the linker maps them
++             * itself and load_library() leaves them PROT_WRITE while it
++             * relocates. The executable is mapped by the KERNEL, from the
++             * program headers, so its text lands read-only (R E) and
++             * nobody ever makes it writable.
++             *
++             * That matters because bionic's own crtbegin_dynamic.S puts
++             * four pointers -- __PREINIT_ARRAY__, __INIT_ARRAY__,
++             * __FINI_ARRAY__, __CTOR_LIST__ -- inline in .text right after
++             * _start, and even documents them as "a tiny trampoline that
++             * will get relocated by the dynamic linker before this code
++             * runs". Those emit four R_ARM_RELATIVE relocations into .text,
++             * and reloc_library() writes unconditionally
++             * (*reloc += si->base) even when si->base is 0. The result is a
++             * SIGSEGV with si_code=SEGV_ACCERR the moment the first
++             * dynamically linked executable starts.
++             *
++             * So: remember it here, and unprotect the range below. The
++             * matching re-protect at the end of link_image already exists.
+              */
++            has_text_relocs = 1;
+             DEBUG("%5d Text segment should be writable during relocation.\n",
+                   pid);
+             break;
+@@ -1733,6 +1754,24 @@ static int link_image(soinfo *si, unsigned wr_offset)
+         }
+     }
+ 
++    /* Make the read-only segments temporarily writable if this object has
++     * text relocations. See the DT_TEXTREL case above for why this is
++     * required (and why upstream getting away without it was luck that
++     * runs out as soon as you launch a dynamically linked executable).
++     * The re-protect further down restores PROT_READ | PROT_EXEC. */
++    if (has_text_relocs &&
++        si->wrprotect_start != 0xffffffff && si->wrprotect_end != 0) {
++        DEBUG("%5d unprotecting %s text 0x%08x-0x%08x for relocation\n",
++              pid, si->name, si->wrprotect_start, si->wrprotect_end);
++        if (mprotect((void *)si->wrprotect_start,
++                     si->wrprotect_end - si->wrprotect_start,
++                     PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
++            DL_ERR("%5d can't unprotect text of '%s' for relocation: %s",
++                   pid, si->name, strerror(errno));
++            goto fail;
++        }
++    }
++
+     if(si->plt_rel) {
+         DEBUG("[ %5d relocating %s plt ]\n", pid, si->name );
+         if(reloc_library(si, si->plt_rel, si->plt_rel_count))

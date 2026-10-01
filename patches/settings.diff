@@ -1,0 +1,1745 @@
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 4a3296222fef87c1c07baebe24af2c31d6d327a3..fd101816b82d099b831c515bcc511b636abee85e 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1438,6 +1438,10 @@
+     <string name="data_size_label">Data</string>
+     <!-- Manage applications, individual application info screen, button label under Storage heading. Button to remove the application from the system. -->
+     <string name="uninstall_text">Uninstall</string>
++    <!-- Android3DS: uninstall confirmation, shown by Settings itself because no PackageInstaller ships -->
++    <string name="n3ds_uninstall_dlg_text">This application will be uninstalled.</string>
++    <!-- Android3DS: shown when PackageManager refuses the uninstall -->
++    <string name="n3ds_uninstall_failed">Uninstall failed.</string>
+     <!-- Manage applications, individual application info screen, button label under Storage heading. Button to clear all data associated with tis app (for exampel, remove all cached emails for an Email app) -->
+     <string name="clear_user_data_text">Clear data</string>
+     <!-- Manage applications, restore updated system application to factory version -->
+diff --git a/res/xml/device_info_memory.xml b/res/xml/device_info_memory.xml
+index febd00f795d603a458b620e032ab351153f2c17b..1950686e2d1157a36bb4c7a2f3f0cd71474afdb6 100644
+--- a/res/xml/device_info_memory.xml
++++ b/res/xml/device_info_memory.xml
+@@ -25,12 +25,9 @@
+             style="?android:attr/preferenceInformationStyle" 
+             android:title="@string/memory_available"
+             android:summary="00"/>
+-        <Preference android:key="memory_sd_unmount"
+-            android:title="@string/sd_eject"
+-            android:summary="@string/sd_eject_summary"/>
+-        <Preference android:key="memory_sd_format"
+-            android:title="@string/sd_format"
+-            android:summary="@string/sd_format_summary"/>
++        <!-- Android3DS: no Unmount / Format here. /system, /data and the
++             kernel all live on this card, so unmounting it pulls the floor
++             out from under the running system. -->
+     </PreferenceCategory>
+ 
+     <PreferenceCategory android:title="@string/internal_memory">
+diff --git a/res/xml/language_settings.xml b/res/xml/language_settings.xml
+index 47eb79550e88905e3c6f29cc0c45581214b7c3bf..1c5df5b07e5cab1344279c51222b3ef6fcfd3396 100644
+--- a/res/xml/language_settings.xml
++++ b/res/xml/language_settings.xml
+@@ -37,7 +37,8 @@
+                 android:targetClass="com.android.settings.PhysicalKeyboardSettings"/>
+     </PreferenceScreen>
+     
+-    <PreferenceScreen 
++    <PreferenceScreen
++            android:key="user_dict_settings"
+             android:title="@string/user_dict_settings_title" 
+             android:summary="@string/user_dict_settings_summary">
+         <intent android:action="android.intent.action.MAIN"
+diff --git a/src/com/android/settings/DeviceInfoSettings.java b/src/com/android/settings/DeviceInfoSettings.java
+index 82b7f2879b490a3e7522d85f18e466da08658f37..3dbf66fa455dcc3075994c05590e4a36cffd103a 100644
+--- a/src/com/android/settings/DeviceInfoSettings.java
++++ b/src/com/android/settings/DeviceInfoSettings.java
+@@ -22,10 +22,12 @@ import android.content.pm.PackageManager;
+ import android.content.pm.ResolveInfo;
+ import android.os.Build;
+ import android.os.Bundle;
++import android.os.SystemClock;
+ import android.os.SystemProperties;
+ import android.preference.Preference;
+ import android.preference.PreferenceActivity;
+ import android.preference.PreferenceGroup;
++import android.preference.PreferenceScreen;
+ import android.util.Config;
+ import android.util.Log;
+ 
+@@ -49,6 +51,10 @@ public class DeviceInfoSettings extends PreferenceActivity {
+     private static final String KEY_COPYRIGHT = "copyright";
+     private static final String KEY_SYSTEM_UPDATE_SETTINGS = "system_update_settings";
+     private static final String PROPERTY_URL_SAFETYLEGAL = "ro.url.safetylegal";
++
++    // N3DS_PLATLOGO_EASTER_EGG (#327): three quick taps on the firmware
++    // version open the bugdroid (PlatLogoActivity, #328).
++    long[] mHits = new long[3];
+     
+     @Override
+     protected void onCreate(Bundle icicle) {
+@@ -57,6 +63,9 @@ public class DeviceInfoSettings extends PreferenceActivity {
+         addPreferencesFromResource(R.xml.device_info_settings);
+        
+         setStringSummary("firmware_version", Build.VERSION.RELEASE);
++        // An "information" preference is disabled by its style, which also
++        // swallows the click; this one is enabled for the easter egg.
++        findPreference("firmware_version").setEnabled(true);
+         setValueSummary("baseband_version", "gsm.version.baseband");
+         setStringSummary("device_model", Build.MODEL);
+         setStringSummary("build_number", Build.DISPLAY);
+@@ -89,6 +98,34 @@ public class DeviceInfoSettings extends PreferenceActivity {
+                 Utils.UPDATE_PREFERENCE_FLAG_SET_TITLE_TO_MATCHING_ACTIVITY);
+         Utils.updatePreferenceToSpecificActivityOrRemove(this, parentPreference, KEY_CONTRIBUTORS,
+                 Utils.UPDATE_PREFERENCE_FLAG_SET_TITLE_TO_MATCHING_ACTIVITY);
++
++        // Android3DS: no tutorial app ships, and tapping an unresolvable
++        // entry is an ActivityNotFoundException. The legal group goes too
++        // once none of its targets resolve, rather than opening empty.
++        Utils.updatePreferenceToSpecificActivityOrRemove(this, parentPreference,
++                "system_tutorial", 0);
++        PreferenceGroup legal = (PreferenceGroup) findPreference(KEY_CONTAINER);
++        if (legal != null && legal.getPreferenceCount() == 0) {
++            getPreferenceScreen().removePreference(legal);
++        }
++    }
++
++    @Override
++    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
++        if ("firmware_version".equals(preference.getKey())) {
++            System.arraycopy(mHits, 1, mHits, 0, mHits.length-1);
++            mHits[mHits.length-1] = SystemClock.uptimeMillis();
++            if (mHits[0] >= (SystemClock.uptimeMillis()-500)) {
++                Intent intent = new Intent(Intent.ACTION_MAIN);
++                intent.setClassName(this, PlatLogoActivity.class.getName());
++                try {
++                    startActivity(intent);
++                } catch (Exception e) {
++                    Log.w(TAG, "Unable to start the platform logo", e);
++                }
++            }
++        }
++        return super.onPreferenceTreeClick(preferenceScreen, preference);
+     }
+ 
+     private void removePreferenceIfPropertyMissing(PreferenceGroup preferenceGroup,
+diff --git a/src/com/android/settings/InstalledAppDetails.java b/src/com/android/settings/InstalledAppDetails.java
+index d05014bfc027dc7e280de2eeb07f80207cefd32c..19f938d922154d8ecdba05b2ed3bbff1ae544295 100644
+--- a/src/com/android/settings/InstalledAppDetails.java
++++ b/src/com/android/settings/InstalledAppDetails.java
+@@ -40,6 +40,7 @@ import android.os.Bundle;
+ import android.os.Handler;
+ import android.os.Message;
+ import android.os.RemoteException;
++import android.widget.Toast;
+ import android.text.format.Formatter;
+ import android.util.Config;
+ import android.util.Log;
+@@ -92,6 +93,7 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+     private static final int CLEAR_USER_DATA = 1;
+     private static final int GET_PKG_SIZE = 2;
+     private static final int CLEAR_CACHE = 3;
++    private static final int PACKAGE_DELETED = 4;
+     private static final String ATTR_PACKAGE_STATS="PackageStats";
+     
+     // invalid size value used initially and also when size retrieval through PackageManager
+@@ -109,6 +111,7 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+     private static final int DLG_FACTORY_RESET = DLG_BASE + 2;
+     private static final int DLG_APP_NOT_FOUND = DLG_BASE + 3;
+     private static final int DLG_CANNOT_CLEAR_DATA = DLG_BASE + 4;
++    private static final int DLG_UNINSTALL = DLG_BASE + 5;
+     
+     // Possible btn states
+     private enum AppButtonStates {
+@@ -132,6 +135,13 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+                     // Refresh size info
+                     mPm.getPackageSizeInfo(mAppInfo.packageName, mSizeObserver);
+                     break;
++                case PACKAGE_DELETED:
++                    if (msg.arg1 == 0) {
++                        Toast.makeText(InstalledAppDetails.this,
++                                R.string.n3ds_uninstall_failed, Toast.LENGTH_SHORT).show();
++                    }
++                    setIntentAndFinish(true, true);
++                    break;
+                 default:
+                     break;
+             }
+@@ -158,6 +168,13 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+          }
+      }
+ 
++    class PackageDeleteObserver extends IPackageDeleteObserver.Stub {
++        public void packageDeleted(boolean succeeded) {
++            mHandler.sendMessage(mHandler.obtainMessage(PACKAGE_DELETED,
++                    succeeded ? 1 : 0, 0));
++        }
++    }
++
+     class ClearCacheObserver extends IPackageDataObserver.Stub {
+         public void onRemoveCompleted(final String packageName, final boolean succeeded) {
+             final Message msg = mHandler.obtainMessage(CLEAR_CACHE);
+@@ -484,6 +501,14 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+                 }
+             })
+             .create();
++        case DLG_UNINSTALL:
++            return new AlertDialog.Builder(this)
++            .setTitle(getString(R.string.uninstall_text))
++            .setIcon(android.R.drawable.ic_dialog_alert)
++            .setMessage(getString(R.string.n3ds_uninstall_dlg_text))
++            .setPositiveButton(R.string.dlg_ok, this)
++            .setNegativeButton(R.string.dlg_cancel, this)
++            .create();
+         case DLG_CANNOT_CLEAR_DATA:
+             return new AlertDialog.Builder(this)
+             .setTitle(getString(R.string.clear_failed_dlg_title))
+@@ -505,8 +530,25 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+          // Create new intent to launch Uninstaller activity
+         Uri packageURI = Uri.parse("package:"+packageName);
+         Intent uninstallIntent = new Intent(Intent.ACTION_DELETE, packageURI);
+-        startActivity(uninstallIntent);
+-        setIntentAndFinish(true, true);
++        if (mPm.resolveActivity(uninstallIntent, 0) != null) {
++            startActivity(uninstallIntent);
++            setIntentAndFinish(true, true);
++            return;
++        }
++        // Android3DS: no PackageInstaller ships, so ACTION_DELETE has no
++        // handler (it was an ActivityNotFoundException). Settings runs as
++        // the system uid and can delete the package itself. FACTORY_RESET
++        // was already confirmed by its own dialog.
++        if (mAppButtonState == AppButtonStates.UNINSTALL) {
++            showDialogInner(DLG_UNINSTALL);
++        } else {
++            deletePackageDirect(packageName);
++        }
++    }
++
++    private void deletePackageDirect(String packageName) {
++        mAppButton.setEnabled(false);
++        mPm.deletePackage(packageName, new PackageDeleteObserver(), 0);
+     }
+ 
+     /*
+@@ -529,7 +571,11 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+         } else if(v == mManageSpaceButton) {
+             Intent intent = new Intent(Intent.ACTION_DEFAULT);
+             intent.setClassName(mAppInfo.packageName, mAppInfo.manageSpaceActivityName);
+-            startActivityForResult(intent, -1);
++            try {
++                startActivityForResult(intent, -1);
++            } catch (android.content.ActivityNotFoundException e) {
++                Log.w(TAG, "no manage-space activity for " + mAppInfo.packageName);
++            }
+         } else if (v == mClearCacheButton) {
+             // Lazy initialization of observer
+             if (mClearCacheObserver == null) {
+@@ -551,6 +597,8 @@ public class InstalledAppDetails extends Activity implements View.OnClickListene
+             } else if (mAppButtonState == AppButtonStates.FACTORY_RESET) {
+                 // Initiate package installer to delete package
+                 uninstallPkg(mAppInfo.packageName);
++            } else if (mAppButtonState == AppButtonStates.UNINSTALL) {
++                deletePackageDirect(mAppInfo.packageName);
+             }
+         } else {
+             //cancel do nothing just retain existing screen
+diff --git a/src/com/android/settings/LanguageSettings.java b/src/com/android/settings/LanguageSettings.java
+index 1b9f0c1b09bc4c7f478868b38c670d03380d9b1d..b84f3cca74e8aeaefbe0a9240945fd3a9fd5f452 100644
+--- a/src/com/android/settings/LanguageSettings.java
++++ b/src/com/android/settings/LanguageSettings.java
+@@ -76,6 +76,14 @@ public class LanguageSettings extends PreferenceActivity {
+         } else {
+             mHaveHardKeyboard = true;
+         }
++        // Android3DS: no UserDictionaryProvider ships and the stock screen
++        // queries it directly, so the entry only appears once one exists.
++        if (getPackageManager().resolveContentProvider("user_dictionary", 0) == null) {
++            Preference userDict = findPreference("user_dict_settings");
++            if (userDict != null) {
++                getPreferenceScreen().removePreference(userDict);
++            }
++        }
+         mCheckboxes = new ArrayList<CheckBoxPreference>();
+         onCreateIMM();
+     }
+diff --git a/src/com/android/settings/PlatLogoActivity.java b/src/com/android/settings/PlatLogoActivity.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..887033f3432f1d385fbcc2a150bd179e4e053a8e
+--- /dev/null
++++ b/src/com/android/settings/PlatLogoActivity.java
+@@ -0,0 +1,233 @@
++/*
++ * Copyright (C) 2010 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings;
++
++import android.app.Activity;
++import android.content.Context;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.Paint;
++import android.graphics.Path;
++import android.graphics.RectF;
++import android.os.Bundle;
++import android.os.SystemClock;
++import android.util.Log;
++import android.view.KeyEvent;
++import android.view.MotionEvent;
++import android.view.View;
++
++/**
++ * N3DS_BUGDROID (#328): the screen behind three quick taps on
++ * Settings > About phone > Firmware version. Eclair never put an easter egg
++ * there, so this one is the Android robot: it bobs and blinks on its own,
++ * and every tap (or the A button) makes it hop with its arms up and its
++ * antennae wiggling. Back leaves.
++ *
++ * Everything is drawn with Canvas in code; no artwork is shipped. The
++ * drawing lives in static methods so test_bugdroid_qemu.sh can render
++ * frames under qemu-arm and check the pixels.
++ */
++public class PlatLogoActivity extends Activity {
++    private static final String TAG = "PlatLogoActivity";
++
++    /** The robot's grid: 160 wide, 200 tall, plus headroom for the hop. */
++    public static final float GRID_W = 160f;
++    public static final float ROBOT_H = 200f;
++    public static final float HOP_HEIGHT = 46f;
++    public static final float GRID_H = ROBOT_H + HOP_HEIGHT;
++    /** One hop, take-off to landing. */
++    public static final long HOP_MS = 650L;
++    public static final int GREEN = 0xffa4c639;
++    public static final int BACKGROUND = 0xff000000;
++    public static final int SHADOW = 0xff2a2a2a;
++
++    /** Square shoulders, rounded bottom corners (TL, TR, BR, BL x/y radii). */
++    private static final float[] BODY_CORNERS = {
++            0f, 0f, 0f, 0f, 14f, 14f, 14f, 14f };
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        Log.i(TAG, "N3DS_BUGDROID");
++        setContentView(new BugdroidView(this));
++    }
++
++    /** How high the robot is off the floor, sinceTapMs after a tap. */
++    public static float hopHeight(long sinceTapMs) {
++        if (sinceTapMs < 0 || sinceTapMs >= HOP_MS) return 0f;
++        final float p = sinceTapMs / (float) HOP_MS;
++        return HOP_HEIGHT * 4f * p * (1f - p);
++    }
++
++    /** The idle bob between hops: two grid units, once every 1.6 s. */
++    public static float bob(long elapsedMs) {
++        return (float) Math.sin(elapsedMs * 2.0 * Math.PI / 1600.0) * 2f;
++    }
++
++    /** Eyes shut for 140 ms every 3.2 s, never mid-hop. */
++    public static boolean eyesOpen(long elapsedMs, long sinceTapMs) {
++        if (sinceTapMs >= 0 && sinceTapMs < HOP_MS) return true;
++        return (elapsedMs % 3200L) >= 140L;
++    }
++
++    /** Screen pixels per grid unit: the whole grid fits, with a margin. */
++    public static float scaleFor(int width, int height) {
++        return Math.min(width / GRID_W, height / GRID_H) * 0.9f;
++    }
++
++    /**
++     * One frame: the robot on a black floor, scaled to fit width x height.
++     * sinceTapMs is the time since the last tap, or -1 for none.
++     */
++    public static void drawFrame(Canvas canvas, int width, int height,
++            long elapsedMs, long sinceTapMs, Paints p) {
++        canvas.drawColor(BACKGROUND);
++        if (width <= 0 || height <= 0) return;
++        final float scale = scaleFor(width, height);
++        final float hop = hopHeight(sinceTapMs);
++        final float lift = hop > 0f ? hop : bob(elapsedMs);
++        final float hopFraction = hop / HOP_HEIGHT;
++
++        canvas.save();
++        canvas.translate((width - GRID_W * scale) / 2f, (height - GRID_H * scale) / 2f);
++        canvas.scale(scale, scale);
++
++        // The shadow on the floor shrinks as the robot rises.
++        final float shadowHalf = 52f * (1f - 0.55f * hopFraction);
++        p.rect.set(80f - shadowHalf, GRID_H - 9f, 80f + shadowHalf, GRID_H - 1f);
++        canvas.drawOval(p.rect, p.shadow);
++
++        canvas.translate(0f, HOP_HEIGHT - lift);
++        drawRobot(canvas, hopFraction, eyesOpen(elapsedMs, sinceTapMs), p);
++        canvas.restore();
++    }
++
++    /**
++     * The robot in its 160 x 200 grid. armsUp runs from 0 (arms at its
++     * sides) to 1 (arms raised for the top of a hop).
++     */
++    public static void drawRobot(Canvas canvas, float armsUp, boolean eyesOpen, Paints p) {
++        // Antennae, wiggling with the hop.
++        final float wiggle = armsUp * 10f;
++        canvas.drawLine(54f, 32f, 44f - wiggle, 14f, p.line);
++        canvas.drawLine(106f, 32f, 116f + wiggle, 14f, p.line);
++
++        // Head: the top half of a circle, with two eyes.
++        p.rect.set(30f, 24f, 130f, 124f);
++        canvas.drawArc(p.rect, 180f, 180f, true, p.fill);
++        if (eyesOpen) {
++            canvas.drawCircle(58f, 50f, 5f, p.eye);
++            canvas.drawCircle(102f, 50f, 5f, p.eye);
++        } else {
++            canvas.drawRect(52f, 49f, 64f, 52f, p.eye);
++            canvas.drawRect(96f, 49f, 108f, 52f, p.eye);
++        }
++
++        // Body: square top, rounded bottom corners.
++        p.path.reset();
++        p.rect.set(30f, 78f, 130f, 168f);
++        p.path.addRoundRect(p.rect, BODY_CORNERS, Path.Direction.CW);
++        canvas.drawPath(p.path, p.fill);
++
++        // Arms, swung out and up around the shoulders.
++        final float swing = armsUp * 150f;
++        canvas.save();
++        canvas.rotate(swing, 15f, 91f);
++        p.rect.set(4f, 80f, 26f, 146f);
++        canvas.drawRoundRect(p.rect, 11f, 11f, p.fill);
++        canvas.restore();
++        canvas.save();
++        canvas.rotate(-swing, 145f, 91f);
++        p.rect.set(134f, 80f, 156f, 146f);
++        canvas.drawRoundRect(p.rect, 11f, 11f, p.fill);
++        canvas.restore();
++
++        // Legs.
++        p.rect.set(50f, 150f, 72f, 196f);
++        canvas.drawRoundRect(p.rect, 11f, 11f, p.fill);
++        p.rect.set(88f, 150f, 110f, 196f);
++        canvas.drawRoundRect(p.rect, 11f, 11f, p.fill);
++    }
++
++    /** The paints and scratch shapes one view reuses every frame. */
++    public static final class Paints {
++        final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
++        final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
++        final Paint eye = new Paint(Paint.ANTI_ALIAS_FLAG);
++        final Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG);
++        final RectF rect = new RectF();
++        final Path path = new Path();
++
++        public Paints() {
++            fill.setColor(GREEN);
++            fill.setStyle(Paint.Style.FILL);
++            line.setColor(GREEN);
++            line.setStyle(Paint.Style.STROKE);
++            line.setStrokeWidth(4f);
++            line.setStrokeCap(Paint.Cap.ROUND);
++            eye.setColor(BACKGROUND);
++            eye.setStyle(Paint.Style.FILL);
++            shadow.setColor(SHADOW);
++            shadow.setStyle(Paint.Style.FILL);
++        }
++    }
++
++    static final class BugdroidView extends View {
++        private final Paints mPaints = new Paints();
++        private final long mStart = SystemClock.uptimeMillis();
++        private long mTapAt = -1L;
++
++        BugdroidView(Context context) {
++            super(context);
++            setBackgroundColor(Color.BLACK);
++            setFocusable(true);
++            setFocusableInTouchMode(true);
++        }
++
++        private void hop() {
++            mTapAt = SystemClock.uptimeMillis();
++            invalidate();
++        }
++
++        @Override
++        public boolean onTouchEvent(MotionEvent event) {
++            if (event.getAction() == MotionEvent.ACTION_DOWN) {
++                hop();
++            }
++            return true;
++        }
++
++        @Override
++        public boolean onKeyDown(int keyCode, KeyEvent event) {
++            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER
++                    || keyCode == KeyEvent.KEYCODE_ENTER) {
++                if (event.getRepeatCount() == 0) hop();
++                return true;
++            }
++            return super.onKeyDown(keyCode, event);
++        }
++
++        @Override
++        protected void onDraw(Canvas canvas) {
++            final long now = SystemClock.uptimeMillis();
++            final long sinceTap = mTapAt < 0 ? -1L : now - mTapAt;
++            drawFrame(canvas, getWidth(), getHeight(), now - mStart, sinceTap, mPaints);
++            // About 30 frames a second is plenty for a bob and a hop.
++            postInvalidateDelayed(33);
++        }
++    }
++}
+diff --git a/src/com/android/settings/deviceinfo/Memory.java b/src/com/android/settings/deviceinfo/Memory.java
+index 53e2a69c9463a52d845c03c6ea7140d3d6bff39e..8e782b2269ebeb06a3a02d9dd7af8b472e066bfc 100644
+--- a/src/com/android/settings/deviceinfo/Memory.java
++++ b/src/com/android/settings/deviceinfo/Memory.java
+@@ -22,17 +22,11 @@ import android.content.Intent;
+ import android.content.IntentFilter;
+ import android.content.res.Resources;
+ import android.os.Bundle;
+-import android.os.IBinder;
+-import android.os.RemoteException;
+ import android.os.Environment;
+-import android.os.IMountService;
+-import android.os.ServiceManager;
+ import android.os.StatFs;
+ import android.preference.Preference;
+ import android.preference.PreferenceActivity;
+-import android.preference.PreferenceScreen;
+ import android.text.format.Formatter;
+-import android.util.Log;
+ 
+ import com.android.settings.R;
+ 
+@@ -47,18 +41,12 @@ public class Memory extends PreferenceActivity {
+ 
+     private static final String MEMORY_SD_AVAIL = "memory_sd_avail";
+ 
+-    private static final String MEMORY_SD_UNMOUNT = "memory_sd_unmount";
+-
+-    private static final String MEMORY_SD_FORMAT = "memory_sd_format";
++    // Android3DS: the SD card holds /system, /data and the kernel, so this
++    // screen is read-only. The stock Unmount and Format entries are gone.
+     private Resources mRes;
+ 
+     private Preference mSdSize;
+     private Preference mSdAvail;
+-    private Preference mSdUnmount;
+-    private Preference mSdFormat;
+-    
+-    // Access using getMountService()
+-    private IMountService mMountService = null;
+ 
+     @Override
+     protected void onCreate(Bundle icicle) {
+@@ -69,8 +57,6 @@ public class Memory extends PreferenceActivity {
+         mRes = getResources();
+         mSdSize = findPreference(MEMORY_SD_SIZE);
+         mSdAvail = findPreference(MEMORY_SD_AVAIL);
+-        mSdUnmount = findPreference(MEMORY_SD_UNMOUNT);
+-        mSdFormat = findPreference(MEMORY_SD_FORMAT);
+     }
+     
+     @Override
+@@ -98,33 +84,6 @@ public class Memory extends PreferenceActivity {
+         unregisterReceiver(mReceiver);
+     }
+     
+-    private synchronized IMountService getMountService() {
+-       if (mMountService == null) {
+-           IBinder service = ServiceManager.getService("mount");
+-           if (service != null) {
+-               mMountService = IMountService.Stub.asInterface(service);
+-           } else {
+-               Log.e(TAG, "Can't get mount service");
+-           }
+-       }
+-       return mMountService;
+-    }
+-    
+-    @Override
+-    public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
+-        if (preference == mSdUnmount) {
+-            unmount();
+-            return true;
+-        } else if (preference == mSdFormat) {
+-            Intent intent = new Intent(Intent.ACTION_VIEW);
+-            intent.setClass(this, com.android.settings.MediaFormat.class);
+-            startActivity(intent);
+-            return true;
+-        }
+-        
+-        return false;
+-    }
+-     
+     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+         @Override
+         public void onReceive(Context context, Intent intent) {
+@@ -132,20 +91,6 @@ public class Memory extends PreferenceActivity {
+         }
+     };
+ 
+-    private void unmount() {
+-        IMountService mountService = getMountService();
+-        try {
+-            if (mountService != null) {
+-                mountService.unmountMedia(Environment.getExternalStorageDirectory().toString());
+-            } else {
+-                Log.e(TAG, "Mount service is null, can't unmount");
+-            }
+-        } catch (RemoteException ex) {
+-            // Failed for some reason, try to update UI to actual state
+-            updateMemoryStatus();
+-        }
+-    }
+-
+     private void updateMemoryStatus() {
+         String status = Environment.getExternalStorageState();
+         String readOnly = "";
+@@ -154,8 +99,6 @@ public class Memory extends PreferenceActivity {
+             readOnly = mRes.getString(R.string.read_only);
+         }
+  
+-        mSdFormat.setEnabled(false);
+-
+         if (status.equals(Environment.MEDIA_MOUNTED)) {
+             try {
+                 File path = Environment.getExternalStorageDirectory();
+@@ -166,7 +109,6 @@ public class Memory extends PreferenceActivity {
+                 
+                 mSdSize.setSummary(formatSize(totalBlocks * blockSize));
+                 mSdAvail.setSummary(formatSize(availableBlocks * blockSize) + readOnly);
+-                mSdUnmount.setEnabled(true);
+             } catch (IllegalArgumentException e) {
+                 // this can occur if the SD card is removed, but we haven't received the 
+                 // ACTION_MEDIA_REMOVED Intent yet.
+@@ -176,15 +118,6 @@ public class Memory extends PreferenceActivity {
+         } else {
+             mSdSize.setSummary(mRes.getString(R.string.sd_unavailable));
+             mSdAvail.setSummary(mRes.getString(R.string.sd_unavailable));
+-            mSdUnmount.setEnabled(false);
+-
+-            if (status.equals(Environment.MEDIA_UNMOUNTED) ||
+-                status.equals(Environment.MEDIA_NOFS) ||
+-                status.equals(Environment.MEDIA_UNMOUNTABLE) ) {
+-                mSdFormat.setEnabled(true);
+-            }
+-
+-            
+         }
+ 
+         File path = Environment.getDataDirectory();
+diff --git a/src/com/android/settings/deviceinfo/Status.java b/src/com/android/settings/deviceinfo/Status.java
+index a736cc06e49f5b026a1ef87351f26ebf8822e7e7..fae5aba679ad3fd4fc65627af3c61388bb87afba 100644
+--- a/src/com/android/settings/deviceinfo/Status.java
++++ b/src/com/android/settings/deviceinfo/Status.java
+@@ -177,13 +177,22 @@ public class Status extends PreferenceActivity {
+             sUnknown = mRes.getString(R.string.device_info_default);
+         }
+         
+-        mPhone = PhoneFactory.getDefaultPhone();
++        // Android3DS: Status runs in the Settings process, not in
++        // com.android.phone (a crash here must not take the telco stack
++        // down with it). The Phone object only exists in the phone process,
++        // so getDefaultPhone() throws here; fall back to TelephonyManager,
++        // which asks the phone process over binder and is null-safe.
++        try {
++            mPhone = PhoneFactory.getDefaultPhone();
++        } catch (RuntimeException e) {
++            mPhone = null;
++        }
+         // Note - missing in zaku build, be careful later...
+         mSignalStrength = findPreference("signal_strength");			
+         mUptime = findPreference("up_time");
+         
+         //NOTE "imei" is the "Device ID" since it represents the IMEI in GSM and the MEID in CDMA
+-        if (mPhone.getPhoneName().equals("CDMA")) {
++        if (mPhone != null && mPhone.getPhoneName().equals("CDMA")) {
+             setSummaryText("meid_number", mPhone.getMeid());
+             setSummaryText("min_number", mPhone.getCdmaMin());
+             setSummaryText("prl_version", mPhone.getCdmaPrlVersion());
+@@ -199,7 +208,8 @@ public class Status extends PreferenceActivity {
+                 getPreferenceScreen().removePreference(removablePref);
+             }
+         } else {
+-            setSummaryText("imei", mPhone.getDeviceId());
++            setSummaryText("imei", mPhone != null ? mPhone.getDeviceId()
++                    : mTelephonyManager.getDeviceId());
+ 
+             setSummaryText("imei_sv",
+                     ((TelephonyManager) getSystemService(TELEPHONY_SERVICE))
+@@ -221,7 +231,8 @@ public class Status extends PreferenceActivity {
+             }
+         }
+ 
+-        setSummaryText("number", mPhone.getLine1Number());
++        setSummaryText("number", mPhone != null ? mPhone.getLine1Number()
++                : mTelephonyManager.getLine1Number());
+ 
+         mPhoneStateReceiver = new PhoneStateIntentReceiver(this, mHandler);
+         mPhoneStateReceiver.notifySignalStrength(EVENT_SIGNAL_STRENGTH_CHANGED);
+@@ -239,7 +250,8 @@ public class Status extends PreferenceActivity {
+         registerReceiver(mBatteryInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+         
+         updateSignalStrength();
+-        updateServiceState(mPhone.getServiceState());
++        updateServiceState(mPhone != null ? mPhone.getServiceState()
++                : mPhoneStateReceiver.getServiceState());
+         updateDataState();
+         
+         mTelephonyManager.listen(mPhoneStateListener,
+diff --git a/src/com/android/settings/fuelgauge/PowerUsageDetail.java b/src/com/android/settings/fuelgauge/PowerUsageDetail.java
+index 737627adf21b31fc7b432755da3a077e425108c6..78b4ff08e517086b238695ded15550d9d95a0260 100644
+--- a/src/com/android/settings/fuelgauge/PowerUsageDetail.java
++++ b/src/com/android/settings/fuelgauge/PowerUsageDetail.java
+@@ -19,6 +19,7 @@ package com.android.settings.fuelgauge;
+ import android.app.Activity;
+ import android.app.ActivityManager;
+ import android.content.Context;
++import android.content.ActivityNotFoundException;
+ import android.content.Intent;
+ import android.content.pm.ApplicationInfo;
+ import android.content.pm.PackageInfo;
+@@ -29,6 +30,7 @@ import android.graphics.drawable.Drawable;
+ import android.os.Bundle;
+ import android.provider.Settings;
+ import android.text.TextUtils;
++import android.util.Log;
+ import android.view.LayoutInflater;
+ import android.view.View;
+ import android.view.ViewGroup;
+@@ -103,6 +105,7 @@ public class PowerUsageDetail extends Activity implements Button.OnClickListener
+     private boolean mUsesGps;
+ 
+     private static final String TAG = "PowerUsageDetail";
++    private int mControlsAdded;
+     private String[] mPackages;
+ 
+     @Override
+@@ -184,29 +187,45 @@ public class PowerUsageDetail extends Activity implements Button.OnClickListener
+         doAction((Integer) v.getTag());
+     }
+ 
+-    private void doAction(int action) {
++    /**
++     * Android3DS: the stock suggestions jump to Display, Bluetooth, Wireless
++     * and Security screens, none of which this build ships; starting them
++     * was an ActivityNotFoundException. addControl() skips any action whose
++     * target does not resolve.
++     */
++    private Intent intentForAction(int action) {
+         switch (action) {
+             case ACTION_DISPLAY_SETTINGS:
+-                startActivity(new Intent(Settings.ACTION_DISPLAY_SETTINGS));
+-                break;
++                return new Intent(Settings.ACTION_DISPLAY_SETTINGS);
+             case ACTION_WIFI_SETTINGS:
+-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+-                break;
++                return new Intent(Settings.ACTION_WIFI_SETTINGS);
+             case ACTION_BLUETOOTH_SETTINGS:
+-                startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+-                break;
++                return new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+             case ACTION_WIRELESS_SETTINGS:
+-                startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+-                break;
++                return new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+             case ACTION_APP_DETAILS:
++                if (mPackages == null || mPackages.length == 0) {
++                    return null;
++                }
+                 Intent intent = new Intent(Intent.ACTION_VIEW);
+                 intent.setClass(this, InstalledAppDetails.class);
+                 intent.putExtra("com.android.settings.ApplicationPkgName", mPackages[0]);
+-                startActivity(intent);
+-                break;
++                return intent;
+             case ACTION_SECURITY_SETTINGS:
+-                startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
+-                break;
++                return new Intent(Settings.ACTION_SECURITY_SETTINGS);
++        }
++        return null;
++    }
++
++    private void doAction(int action) {
++        Intent intent = intentForAction(action);
++        if (intent == null) {
++            return;
++        }
++        try {
++            startActivity(intent);
++        } catch (ActivityNotFoundException e) {
++            Log.w(TAG, "N3DS_BATTERY_USE: no screen for action " + action);
+         }
+     }
+ 
+@@ -297,12 +316,17 @@ public class PowerUsageDetail extends Activity implements Button.OnClickListener
+                 }
+                 break;
+         }
+-        if (removeHeader) {
++        if (removeHeader || mControlsAdded == 0) {
+             mControlsParent.setVisibility(View.GONE);
+         }
+     }
+ 
+     private void addControl(int title, int summary, int action) {
++        Intent target = intentForAction(action);
++        if (target == null || getPackageManager().resolveActivity(target, 0) == null) {
++            return;
++        }
++        mControlsAdded++;
+         final Resources res = getResources();
+         LayoutInflater inflater = getLayoutInflater();
+         ViewGroup item = (ViewGroup) inflater.inflate(R.layout.power_usage_action_item,null);
+diff --git a/src/com/android/settings/fuelgauge/PowerUsageSummary.java b/src/com/android/settings/fuelgauge/PowerUsageSummary.java
+index 10ab2d00f400d863c7b05f7159b7f226ce124114..37091f519961c11295a3f2daf0919e81ea8cbfc1 100644
+--- a/src/com/android/settings/fuelgauge/PowerUsageSummary.java
++++ b/src/com/android/settings/fuelgauge/PowerUsageSummary.java
+@@ -248,8 +248,17 @@ public class PowerUsageSummary extends PreferenceActivity implements Runnable {
+ 
+         mAppListGroup.removeAll();
+         mUsageList.clear();
+-        processAppUsage();
+-        processMiscUsage();
++        if (mStats == null) {
++            return;
++        }
++        try {
++            processAppUsage();
++            processMiscUsage();
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_BATTERY_USE: could not process battery stats", e);
++            mUsageList.clear();
++            return;
++        }
+ 
+         mAppListGroup.setOrderingAsAdded(false);
+ 
+@@ -445,9 +454,8 @@ public class PowerUsageSummary extends PreferenceActivity implements Runnable {
+                     * mPowerProfile.getAveragePower(PowerProfile.POWER_RADIO_ON, i);
+             signalTimeMs += strengthTimeMs;
+         }
+-        long scanningTimeMs = mStats.getPhoneSignalScanningTime(uSecNow, mStatsType) / 1000;
+-        power += scanningTimeMs / 1000 * mPowerProfile.getAveragePower(
+-                PowerProfile.POWER_RADIO_SCANNING);
++        // Android3DS: the 2.0 framework keeps no signal-scanning time (a
++        // 2.1 statistic) and the 3DS has no cell radio to scan with.
+         BatterySipper bs =
+                 addEntry(getString(R.string.power_cell), DrainType.CELL, signalTimeMs,
+                 R.drawable.ic_settings_cell_standby, power);
+@@ -542,8 +550,18 @@ public class PowerUsageSummary extends PreferenceActivity implements Runnable {
+     }
+ 
+     private void load() {
++        // Android3DS: a missing batteryinfo service or an empty parcel
++        // leaves the list empty instead of crashing Settings.
++        if (mBatteryInfo == null) {
++            Log.w(TAG, "N3DS_BATTERY_USE: no batteryinfo service");
++            return;
++        }
+         try {
+             byte[] data = mBatteryInfo.getStatistics();
++            if (data == null) {
++                Log.w(TAG, "N3DS_BATTERY_USE: batteryinfo returned no data");
++                return;
++            }
+             Parcel parcel = Parcel.obtain();
+             parcel.unmarshall(data, 0, data.length);
+             parcel.setDataPosition(0);
+@@ -551,6 +569,9 @@ public class PowerUsageSummary extends PreferenceActivity implements Runnable {
+                     .createFromParcel(parcel);
+         } catch (RemoteException e) {
+             Log.e(TAG, "RemoteException:", e);
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_BATTERY_USE: could not read battery stats", e);
++            mStats = null;
+         }
+     }
+ 
+diff --git a/src/com/android/settings/wifi/AccessPointDialog.java b/src/com/android/settings/wifi/AccessPointDialog.java
+index 4804d7837d5dd18b4d2a60217560b560320445ed..f4de8417afd46e999daa7d220ed2ec0d886cdb05 100644
+--- a/src/com/android/settings/wifi/AccessPointDialog.java
++++ b/src/com/android/settings/wifi/AccessPointDialog.java
+@@ -529,6 +529,17 @@ public class AccessPointDialog extends AlertDialog implements DialogInterface.On
+      * (since in that scenario, an empty password means keep the old password).
+      */
+     private void updatePasswordField() {
++        /* N3DS_SETTINGS_REMEMBERED_PROFILE_V2: an exact saved
++         * profile is resolved before empty-password validation.
++         * N3DS_SETTINGS_REMEMBERED_PROFILE_NO_REPROMPT: an exact saved
++         * profile supplies its own protected key.  Never suppress the retry
++         * prompt after an authentication failure. */
++        /* N3DS_SETTINGS_REMEMBERED_PROFILE_V3: executable marker installed. */
++        final boolean reuseRemembered = mMode != AccessPointDialog.MODE_RETRY_PASSWORD &&
++                mState != null && mWifiLayer.hasCompatibleConfiguredNetwork(mState);
++        if (reuseRemembered) {
++            Log.i(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_NO_REPROMPT");
++        }
+ 
+       String password = getEnteredPassword();
+       boolean passwordIsEmpty = TextUtils.isEmpty(password);
+@@ -537,8 +548,8 @@ public class AccessPointDialog extends AlertDialog implements DialogInterface.On
+        * other mode, we let them enter a blank password if the state already
+        * has a password.
+        */
+-      if (passwordIsEmpty && (!mState.hasPassword() ||
+-              mMode == MODE_RETRY_PASSWORD) &&
++      if (passwordIsEmpty && !reuseRemembered &&
++                (!mState.hasPassword() || mMode == MODE_RETRY_PASSWORD) &&
+               (mState.security != null) &&
+               !mState.security.equals(AccessPointState.OPEN) &&
+               !mState.isEnterprise()) {
+diff --git a/src/com/android/settings/wifi/AccessPointPreference.java b/src/com/android/settings/wifi/AccessPointPreference.java
+index 6dd5492ec0bf86d4e4cd1ffadf06741f61c3268e..5fbe037009ec7215c7663bd3fb343bd767e97227 100644
+--- a/src/com/android/settings/wifi/AccessPointPreference.java
++++ b/src/com/android/settings/wifi/AccessPointPreference.java
+@@ -48,6 +48,9 @@ public class AccessPointPreference extends Preference implements
+     }
+     
+     public void refresh() {
++        /* N3DS_SETTINGS_WIFI_PROTECTED_LABEL: N3DS_SETTINGS_WIFI_PROTECTED_LABEL_V2
++         * Keep the SSID title stable.  Security is conveyed by the normal
++         * preference icon and summary, never by mutating the network name. */
+         setTitle(mState.getHumanReadableSsid());
+         setSummary(mState.getSummarizedStatus());
+ 
+diff --git a/src/com/android/settings/wifi/AccessPointState.java b/src/com/android/settings/wifi/AccessPointState.java
+index 5aefa557b272876068e135e3e88e6e8a78d52b8d..0eb98104df79b79ca589e6f5ee8913aa476d12a6 100644
+--- a/src/com/android/settings/wifi/AccessPointState.java
++++ b/src/com/android/settings/wifi/AccessPointState.java
+@@ -32,6 +32,7 @@ import android.os.Parcel;
+ import android.os.Parcelable;
+ import android.text.TextUtils;
+ import android.util.Log;
++import java.util.Locale;
+ 
+ public final class AccessPointState implements Comparable<AccessPointState>, Parcelable {
+ 
+@@ -42,6 +43,7 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+     public static final String WEP = "WEP";
+     public static final String EAP = "EAP";
+     public static final String OPEN = "Open";
++    public static final String UNKNOWN = "Unknown";
+ 
+     public static final String[] EAP_METHOD = { "PEAP", "TLS", "TTLS" };
+ 
+@@ -315,16 +317,95 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+     /**
+      * @return The security of a given {@link ScanResult}.
+      */
+-    public static String getScanResultSecurity(ScanResult scanResult) {
+-        final String cap = scanResult.capabilities;
+-        final String[] securityModes = { WEP, PSK, EAP };
+-        for (int i = securityModes.length - 1; i >= 0; i--) {
+-            if (cap.contains(securityModes[i])) {
+-                return securityModes[i];
++
++
++
++
++
++
++    /* N3DS_SETTINGS_PROTECTED_SCAN_EVIDENCE: an UNKNOWN
++     * capability may still be safely linked to an exact remembered protected
++     * profile only when the lower layer preserved both the malformed marker
++     * and explicit privacy/RSN/WPA evidence.  Empty or token-less UNKNOWN
++     * rows remain non-actionable and are never treated as OPEN. */
++    public static boolean hasProtectedCapabilityEvidence(ScanResult scanResult) {
++        if (scanResult == null || TextUtils.isEmpty(scanResult.capabilities)) {
++            return false;
++        }
++        final String cap = scanResult.capabilities.toUpperCase(Locale.US);
++        if (!cap.contains("N3DS-SECURITY-UNKNOWN")) {
++            return false;
++        }
++        return cap.contains("N3DS-PRIVACY") ||
++                cap.contains("N3DS-RSN-RAW") ||
++                cap.contains("N3DS-WPA-RAW");
++    }
++
++    /* N3DS_SETTINGS_SCAN_SECURITY_FAIL_CLOSED: only an explicit
++     * N3DS_SETTINGS_SCAN_SECURITY_V3: canonical AccessPointState security
++     * vocabulary is PSK/EAP/WEP/OPEN/UNKNOWN.  A valid standard supplicant
++     * security token is authoritative even when a diagnostic marker records
++     * a malformed duplicate probe/beacon IE for the same BSS.
++     * capability allowlisted by isExplicitOpenCapability() means open.
++     * Empty/degraded flags are not proof of an open BSS; preserve upstream
++     * WEP/privacy and malformed RSN/WPA markers as protected/unknown evidence.
++     * Settings does not see the raw 802.11 privacy bit; the lower layer must
++     * preserve it as a capability marker before this method is called. */
++    private static boolean isExplicitOpenCapability(String cap) {
++        /* N3DS_SETTINGS_OPEN_CAPABILITY_ALLOWLIST: keep this deliberately
++         * bounded. Unknown tokens (including [MALFORMED]) never imply OPEN. */
++        final String[] openCapabilities = {
++            "[ESS]", "[OPEN]", "[ESS][OPEN]", "[OPEN][ESS]",
++            "[ESS][WPS]", "[WPS][ESS]",
++            "[ESS][WPS-PBC]", "[WPS-PBC][ESS]",
++            "[ESS][WPS-AUTH]", "[WPS-AUTH][ESS]",
++            "[ESS][WPS-PIN]", "[WPS-PIN][ESS]"
++        };
++        for (int i = openCapabilities.length - 1; i >= 0; i--) {
++            if (openCapabilities[i].equals(cap)) {
++                return true;
+             }
+         }
+-        
+-        return OPEN;
++        return false;
++    }
++
++    public static String getScanResultSecurity(ScanResult scanResult) {
++        if (scanResult == null || TextUtils.isEmpty(scanResult.capabilities)) {
++            Log.w(TAG, "N3DS_SETTINGS_SCAN_SECURITY_UNKNOWN empty capabilities");
++            return UNKNOWN;
++        }
++
++        final String cap = scanResult.capabilities.toUpperCase(Locale.US);
++        /* Prefer the standard, successfully parsed capability tokens emitted
++         * by wpa_supplicant.  The N3DS diagnostic tokens are deliberately not
++         * accepted as a security class: N3DS-RSN-RAW, for example, proves
++         * only that a raw IE existed, not that it parsed as WPA2. */
++        if (cap.contains("IEEE8021X")) {
++            return EAP;
++        }
++        if (cap.contains("WPA-EAP") || cap.contains("-EAP") ||
++            cap.contains("[EAP")) {
++            return EAP;
++        }
++        if (cap.contains("[WPA2-") || cap.contains("[WPA-") ||
++            cap.contains("[RSN-") || cap.contains("PSK")) {
++            return PSK;
++        }
++        if (cap.contains("[WEP]") || cap.contains("[PRIVACY]")) {
++            return WEP;
++        }
++        /* No valid standard class was present.  Malformed/raw diagnostics
++         * remain fail-closed and are suppressed by WifiLayer before the UI. */
++        if (cap.contains("N3DS-SECURITY-UNKNOWN")) {
++            return UNKNOWN;
++        }
++        if (isExplicitOpenCapability(cap)) {
++            return OPEN;
++        }
++
++        Log.w(TAG, "N3DS_SETTINGS_SCAN_SECURITY_UNKNOWN capabilities=" +
++                scanResult.capabilities);
++        return UNKNOWN;
+     }
+     
+     /**
+@@ -418,12 +499,31 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+     /**
+      * @return The security of a given {@link WifiConfiguration}.
+      */
++    /* N3DS_SETTINGS_WIFI_SECURITY_REPAIR: correctly classify saved WPA/WPA2-PSK
++     * networks even when wpa_supplicant masks or omits cleartext preSharedKey,
++     * and populate full KeyMgmt/Protocol/Cipher/AuthAlgorithm bitsets for both
++     * PSK and OPEN so wpa_supplicant never rejects connections with privacy
++     * or auth mismatches. */
+     public static String getWifiConfigurationSecurity(WifiConfiguration wifiConfig) {
+-        if (!TextUtils.isEmpty(wifiConfig.eap.value())) {
++        if (wifiConfig == null) {
++            return OPEN;
++        }
++        if (!TextUtils.isEmpty(wifiConfig.eap.value()) ||
++            (wifiConfig.allowedKeyManagement != null &&
++             (wifiConfig.allowedKeyManagement.get(KeyMgmt.WPA_EAP) ||
++              wifiConfig.allowedKeyManagement.get(KeyMgmt.IEEE8021X)))) {
+             return EAP;
+-        } else if (!TextUtils.isEmpty(wifiConfig.preSharedKey)) {
++        } else if (!TextUtils.isEmpty(wifiConfig.preSharedKey) ||
++                   (wifiConfig.allowedKeyManagement != null &&
++                    wifiConfig.allowedKeyManagement.get(KeyMgmt.WPA_PSK))) {
+             return PSK;
+-        } else if (!TextUtils.isEmpty(wifiConfig.wepKeys[0])) {
++        } else if (!TextUtils.isEmpty(wifiConfig.wepKeys[0]) ||
++                   (wifiConfig.allowedAuthAlgorithms != null &&
++                    wifiConfig.allowedAuthAlgorithms.get(AuthAlgorithm.SHARED)) ||
++                   (wifiConfig.allowedKeyManagement != null &&
++                    wifiConfig.allowedKeyManagement.get(KeyMgmt.NONE) &&
++                    wifiConfig.wepTxKeyIndex >= 0 && wifiConfig.wepTxKeyIndex < 4 &&
++                    !TextUtils.isEmpty(wifiConfig.wepKeys[wifiConfig.wepTxKeyIndex]))) {
+             return WEP;
+         }
+         return OPEN;
+@@ -448,8 +548,12 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+     /**
+      * @return Whether this AP can be connected to at the moment.
+      */
++    /* N3DS_SETTINGS_UNKNOWN_NOT_CONNECTABLE: an AP with missing or
++     * unclassified security may remain visible for diagnosis, but it must not
++     * be offered as an actionable connection target. */
+     public boolean isConnectable() {
+-        return !primary && seen;
++        return !primary && seen && !TextUtils.isEmpty(security) &&
++                !UNKNOWN.equals(security);
+     }
+ 
+     /**
+@@ -527,8 +631,8 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+         config.allowedProtocols.clear();
+         
+         if (TextUtils.isEmpty(security)) {
+-            security = OPEN;
+-            Log.w(TAG, "Empty security, assuming open");
++            security = UNKNOWN;
++            Log.w(TAG, "N3DS_SETTINGS_UNKNOWN_SECURITY_FAIL_CLOSED empty security");
+         }
+         
+         if (security.equals(WEP)) {
+@@ -561,14 +665,38 @@ public final class AccessPointState implements Comparable<AccessPointState>, Par
+                     config.preSharedKey = convertToQuotedString(mPassword);
+                 }
+             }
++            config.allowedAuthAlgorithms.set(AuthAlgorithm.OPEN);
++            config.allowedProtocols.set(Protocol.WPA);
++            config.allowedProtocols.set(Protocol.RSN);
++            config.allowedKeyManagement.set(KeyMgmt.WPA_PSK);
++            config.allowedPairwiseCiphers.set(PairwiseCipher.TKIP);
++            config.allowedPairwiseCiphers.set(PairwiseCipher.CCMP);
++            /* N3DS_SETTINGS_WPA_GROUP_CIPHERS_V2: wpa_supplicant 2.10
++             * rejects the legacy mixed WEP/WPA group set. WPA-PSK/EAP
++             * profiles use only TKIP/CCMP; the WEP branch remains separate. */
++            config.allowedGroupCiphers.set(GroupCipher.TKIP);
++            config.allowedGroupCiphers.set(GroupCipher.CCMP);
+         } else if (security.equals(EAP)) {
++            config.allowedAuthAlgorithms.set(AuthAlgorithm.OPEN);
++            config.allowedProtocols.set(Protocol.WPA);
++            config.allowedProtocols.set(Protocol.RSN);
+             config.allowedKeyManagement.set(KeyMgmt.WPA_EAP);
+             config.allowedKeyManagement.set(KeyMgmt.IEEE8021X);
++            config.allowedPairwiseCiphers.set(PairwiseCipher.TKIP);
++            config.allowedPairwiseCiphers.set(PairwiseCipher.CCMP);
++            config.allowedGroupCiphers.set(GroupCipher.TKIP);
++            config.allowedGroupCiphers.set(GroupCipher.CCMP);
+             if (!TextUtils.isEmpty(mPassword)) {
+                 config.password.setValue(convertToQuotedString(mPassword));
+             }
+         } else if (security.equals(OPEN)) {
++            config.allowedAuthAlgorithms.set(AuthAlgorithm.OPEN);
+             config.allowedKeyManagement.set(KeyMgmt.NONE);
++        } else {
++            /* N3DS_SETTINGS_UNKNOWN_SECURITY_FAIL_CLOSED: never turn an
++             * unclassified scan result into an open network configuration. */
++            Log.w(TAG, "N3DS_SETTINGS_UNKNOWN_SECURITY_FAIL_CLOSED security="
++                    + security);
+         }
+     }
+     
+diff --git a/src/com/android/settings/wifi/WifiLayer.java b/src/com/android/settings/wifi/WifiLayer.java
+index ce518e1d2a60f61f79aa9824404f56facd6baf73..bf2d40228b8d03998844c5040c9368e18bd16515 100644
+--- a/src/com/android/settings/wifi/WifiLayer.java
++++ b/src/com/android/settings/wifi/WifiLayer.java
+@@ -35,6 +35,7 @@ import android.net.wifi.WifiInfo;
+ import android.net.wifi.WifiManager;
+ import android.os.Handler;
+ import android.os.Message;
++import android.os.SystemClock;
+ import android.provider.Settings;
+ import android.text.TextUtils;
+ import android.util.Config;
+@@ -80,9 +81,17 @@ public class WifiLayer {
+     private AccessPointState mLastAuthenticatingAp;
+     
+     /** The delay between scans when we're continually scanning. */
+-    private static final int CONTINUOUS_SCAN_DELAY_MS = 6000; 
+-    /** On failure, the maximum retries for scanning. */
+-    private static final int SCAN_MAX_RETRY = 5;
++    /* N3DS_WIFI_30S_DISCONNECTED_AUTO_SCAN: AR6014 scans are expensive.
++     * This delay applies only to automatic disconnected refreshes; the menu's
++     * explicit Scan command remains immediate. */
++    private static final int CONTINUOUS_SCAN_DELAY_MS = 30000;
++    /**
++     * On failure, the maximum retries for scanning.  WifiMonitor permits the
++     * supplicant control socket up to roughly 15 seconds to appear (four
++     * attempts separated by five seconds), so a five-second UI retry window
++     * reports a false failure immediately before a valid connection.
++     */
++    private static final int SCAN_MAX_RETRY = 20;
+     /** On failure, the delay between each scan retry. */
+     private static final int SCAN_RETRY_DELAY_MS = 1000;
+     /** On failure, the number of retries so far. */
+@@ -92,6 +101,8 @@ public class WifiLayer {
+      * disabled in this state.
+      */
+     private boolean mIsObtainingAddress;
++    private boolean mIsConnected;
++    private long mLastAutoScanStart;
+ 
+     /**
+      * See {@link android.provider.Settings.Secure#WIFI_NUM_OPEN_NETWORKS_KEPT}.
+@@ -168,7 +179,13 @@ public class WifiLayer {
+ 
+         @Override
+         public void onReceive(Context context, Intent intent) {
+-            final String action = intent.getAction();
++        String action = null;
++            /* N3DS_SETTINGS_WIFI_CALLBACK_GUARD: a framework restart can deliver a
++             * partial Wi-Fi broadcast. Keep transient binder/null
++             * races from killing Settings; log only action/type. */
++            try {
++            action = intent == null ? null : intent.getAction();
++            if (action == null) return;
+             if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+                 handleNetworkStateChanged(
+                         (NetworkInfo) intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO),
+@@ -191,6 +208,11 @@ public class WifiLayer {
+             } else if (action.equals(WifiManager.NETWORK_IDS_CHANGED_ACTION)) {
+                 handleNetworkIdsChanged();
+             }
++        
++            } catch (RuntimeException e) {
++                Log.e(TAG, "N3DS_SETTINGS_WIFI_CALLBACK_FAILED action="
++                        + action + " type=" + e.getClass().getName());
++            }
+         }
+     };
+     
+@@ -219,6 +241,7 @@ public class WifiLayer {
+      */
+     public void onCreate() {
+         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
++        if (mWifiManager == null) Log.e(TAG, "N3DS_SETTINGS_WIFI_UNAVAILABLE");
+         
+         mIntentFilter = new IntentFilter();
+         mIntentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+@@ -253,7 +276,10 @@ public class WifiLayer {
+         mContext.registerReceiver(mReceiver, mIntentFilter);
+         
+         if (isWifiEnabled()) {
+-            // Kick start the continual scan
++            WifiInfo info = mWifiManager.getConnectionInfo();
++            mIsConnected = info != null &&
++                    info.getSupplicantState() == SupplicantState.COMPLETED;
++            // Resume automatic refresh only while disconnected.
+             queueContinuousScan();
+         }
+     }
+@@ -306,7 +332,84 @@ public class WifiLayer {
+      *            {@link #getWifiLayerApInstance(AccessPointState)}.
+      * @return Whether the operation was successful.
+      */
++    /**
++     * Returns true only when this scan row matches an existing configured
++     * network by its explicit quoted SSID and canonical security class.  Do
++     * not use findConfiguredNetwork() here: an unmerged scan row can still
++     * carry NETWORK_ID_NOT_SET or a different BSSID.  The configuration's
++     * secret is never copied into AccessPointState or logged.
++     */
++    public boolean hasCompatibleConfiguredNetwork(AccessPointState state) {
++         /* N3DS_SETTINGS_REMEMBERED_PROFILE_MATCH_GUARD: compatibility is
++         * N3DS_SETTINGS_REMEMBERED_PROFILE_V2 and is deliberately
++         * independent of network ID/BSSID so a scan row that
++         * has not merged into the saved row can still reuse its profile. */
++        // A protected saved row can be marked primary while supplicant is
++        // ASSOCIATING. That transient UI state must not hide its persisted
++        // profile and force a bogus password prompt.
++        if (state == null || !state.seen ||
++                TextUtils.isEmpty(state.ssid) ||
++                TextUtils.isEmpty(state.security) ||
++                AccessPointState.UNKNOWN.equals(state.security)) {
++            Log.w(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_MISS");
++            return false;
++        }
++
++        final List<WifiConfiguration> wifiConfigs = getConfiguredNetworks();
++        for (int i = wifiConfigs.size() - 1; i >= 0; i--) {
++            final WifiConfiguration config = wifiConfigs.get(i);
++            if (config == null || !state.ssid.equals(config.SSID)) {
++                continue;
++            }
++            final String configuredSecurity =
++                    AccessPointState.getWifiConfigurationSecurity(config);
++            if (!state.security.equals(configuredSecurity)) {
++                continue;
++            }
++
++            /* Populate only non-secret profile metadata so the dialog renders
++             * the row as configured.  The existing connectToNetwork() path
++             * then updates/enables/saves this same config without replacing
++             * its key. */
++            state.updateFromWifiConfiguration(config);
++            Log.i(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_REUSE security=" +
++                    state.security);
++            return true;
++        }
++
++        Log.w(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_MISS");
++        return false;
++    }
++
++    /**
++     * Detects a saved profile with the same SSID but a different security
++     * class.  This is only a change/confirmation signal; it never authorizes
++     * copying that profile's protected key into the selected state.
++     */
++    public boolean hasConfiguredNetworkForSsid(AccessPointState state) {
++        if (state == null || TextUtils.isEmpty(state.ssid)) {
++            return false;
++        }
++        final List<WifiConfiguration> wifiConfigs = getConfiguredNetworks();
++        for (int i = wifiConfigs.size() - 1; i >= 0; i--) {
++            final WifiConfiguration wifiConfig = wifiConfigs.get(i);
++            if (wifiConfig != null && state.ssid.equals(wifiConfig.SSID)) {
++                return true;
++            }
++        }
++        return false;
++    }
++
+     public boolean connectToNetwork(AccessPointState state) {
++        /* N3DS_SETTINGS_REMEMBERED_PROFILE_V4: an explicit row
++         * selection may retry a seen, classified AP while the framework still
++         * labels the previous attempt primary/ASSOCIATING.  That transient
++         * flag must not turn the action into a cancel-only dialog. */
++        if (state == null || !state.seen || TextUtils.isEmpty(state.security) ||
++                AccessPointState.UNKNOWN.equals(state.security)) {
++            Log.w(TAG, "N3DS_SETTINGS_UNKNOWN_NOT_CONNECTABLE");
++            return false;
++        }
+         if (LOGV) {
+             Log.v(TAG, "Connecting to " + state);
+         }
+@@ -352,7 +455,13 @@ public class WifiLayer {
+          * Give it highest priority, this could cause a network ID change, so do
+          * it after any modifications to the network we're connecting to
+          */
+-        setHighestPriorityStateAndSave(state, config);
++        /* N3DS_SETTINGS_PRIORITY_FAILURE_GUARD: do not continue to
++         * SELECT_NETWORK after updateNetwork/saveConfiguration rejected the
++         * selected profile. The caller must see a real connection failure. */
++        if (!setHighestPriorityStateAndSave(state, config)) {
++            error(R.string.error_connecting);
++            return false;
++        }
+         
+         /*
+          * We force supplicant to connect to this network by disabling the
+@@ -370,9 +479,20 @@ public class WifiLayer {
+             Log.v(TAG, " Enabled network " + state.networkId);
+         }
+ 
+-        if (mCurrentSupplicantState == SupplicantState.DISCONNECTED ||
+-                mCurrentSupplicantState == SupplicantState.SCANNING) {
+-            mWifiManager.reconnect();
++        /* N3DS_SETTINGS_MANUAL_REASSOCIATE_V2: an explicit tap must
++         * restart the selected profile even while supplicant is ASSOCIATING;
++         * SELECT_NETWORK alone is a documented no-op in that state. */
++        try {
++            if (!mWifiManager.reassociate()) {
++                Log.e(TAG, "N3DS_SETTINGS_MANUAL_REASSOCIATE_FAILED");
++                error(R.string.error_connecting);
++                return false;
++            }
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_SETTINGS_MANUAL_REASSOCIATE_FAILED type=" +
++                    e.getClass().getName());
++            error(R.string.error_connecting);
++            return false;
+         }
+         
+         // Check for too many configured open networks
+@@ -392,6 +512,11 @@ public class WifiLayer {
+      * @return Whether the operation was successful.
+      */
+     public boolean saveNetwork(AccessPointState state) {
++        if (state == null || TextUtils.isEmpty(state.security) ||
++                AccessPointState.UNKNOWN.equals(state.security)) {
++            Log.w(TAG, "N3DS_SETTINGS_UNKNOWN_SAVE_REJECTED");
++            return false;
++        }
+         WifiConfiguration config = findConfiguredNetwork(state);
+         
+         if (config == null) {
+@@ -521,11 +646,31 @@ public class WifiLayer {
+ 
+     private void queueContinuousScan() {
+         mHandler.removeMessages(MESSAGE_ATTEMPT_SCAN);
+-        
+-        if (!mIsObtainingAddress) {
+-            // Don't do continuous scan while in obtaining IP state
+-            mHandler.sendEmptyMessageDelayed(MESSAGE_ATTEMPT_SCAN, CONTINUOUS_SCAN_DELAY_MS);
++
++        // Never auto-scan an active connection. Manual attemptScan() remains
++        // available from the Scan menu and deliberately bypasses this gate.
++        if (!mIsObtainingAddress && !mIsConnected) {
++            mHandler.sendEmptyMessageDelayed(MESSAGE_ATTEMPT_SCAN,
++                    CONTINUOUS_SCAN_DELAY_MS);
++        }
++    }
++
++    private void attemptAutoScan() {
++        if (mIsConnected || mIsObtainingAddress || !isWifiEnabled()) {
++            removeFutureScans();
++            return;
+         }
++        long now = SystemClock.elapsedRealtime();
++        long remaining = CONTINUOUS_SCAN_DELAY_MS - (now - mLastAutoScanStart);
++        if (mLastAutoScanStart != 0 && remaining > 0) {
++            mHandler.removeMessages(MESSAGE_ATTEMPT_SCAN);
++            mHandler.sendEmptyMessageDelayed(MESSAGE_ATTEMPT_SCAN, remaining);
++            return;
++        }
++        mLastAutoScanStart = now;
++        Log.i(TAG, "N3DS_WIFI_AUTO_SCAN start interval="
++                + CONTINUOUS_SCAN_DELAY_MS);
++        attemptScan();
+     }
+     
+     private void removeFutureScans() {
+@@ -553,7 +698,7 @@ public class WifiLayer {
+         refreshStatus();
+         
+         if (attemptScan) {
+-            attemptScan();
++            attemptAutoScan();
+         }
+     }
+     
+@@ -602,7 +747,13 @@ public class WifiLayer {
+     }
+     
+     private boolean managerSaveConfiguration() {
+-        boolean retValue = mWifiManager.saveConfiguration();
++        boolean retValue;
++        try {
++            retValue = mWifiManager.saveConfiguration();
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_SETTINGS_WIFI_SAVE_FAILED type=" + e.getClass().getName());
++            return false;
++        }
+         
+         /*
+          * We need to assume the network IDs have changed, so handle this. Note:
+@@ -616,7 +767,13 @@ public class WifiLayer {
+     }
+     
+     private boolean managerEnableNetwork(AccessPointState state, boolean disableOthers) {
+-        if (!mWifiManager.enableNetwork(state.networkId, disableOthers)) {
++        if (mWifiManager == null || state == null) return false;
++        try {
++            if (!mWifiManager.enableNetwork(state.networkId, disableOthers)) {
++                return false;
++            }
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_SETTINGS_WIFI_ENABLE_FAILED type=" + e.getClass().getName());
+             return false;
+         }
+         
+@@ -674,8 +831,14 @@ public class WifiLayer {
+     }
+     
+     private List<WifiConfiguration> getConfiguredNetworks() {
+-        final List<WifiConfiguration> wifiConfigs = mWifiManager.getConfiguredNetworks();
+-        return wifiConfigs;
++        if (mWifiManager == null) return Collections.emptyList();
++        try {
++            final List<WifiConfiguration> wifiConfigs = mWifiManager.getConfiguredNetworks();
++            return wifiConfigs == null ? Collections.<WifiConfiguration>emptyList() : wifiConfigs;
++        } catch (RuntimeException e) {
++            Log.e(TAG, "N3DS_SETTINGS_WIFI_CONFIGS_FAILED type=" + e.getClass().getName());
++            return Collections.emptyList();
++        }
+     }
+     
+     /**
+@@ -758,7 +921,12 @@ public class WifiLayer {
+ 
+             // Make sure our next highest priority is greater than this
+             checkNextHighestPriority(ap.priority);
+-            
++
++            /* N3DS_SETTINGS_REMEMBERED_UNSEEN_VISIBILITY: configured
++             * profiles are inserted into mApOtherList even when the current
++             * scan does not contain their BSS. Notify the adapter immediately
++             * so a remembered home-network profile remains visible as
++             * "Not in range" instead of disappearing until the next scan. */
+             if (mCallback != null) {
+                 mCallback.onAccessPointSetChanged(ap, true);
+             }
+@@ -766,8 +934,9 @@ public class WifiLayer {
+     }
+ 
+     private AccessPointState getCurrentAp() {
++        if (mWifiManager == null) return null;
+         final WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
+-        
++        if (wifiInfo == null) return null;
+         String ssid = wifiInfo.getSSID();
+         if (ssid != null) {
+             /*
+@@ -1006,6 +1175,11 @@ public class WifiLayer {
+     
+     private void refreshStatus(AccessPointState ap, NetworkInfo.DetailedState detailedState) {
+         final WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
++        // The connection info may disappear while Wi-Fi/system services are
++        // transitioning.  A disconnect broadcast must not crash Settings.
++        if (wifiInfo == null) {
++            return;
++        }
+         if (detailedState == null) {
+             detailedState = WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState());
+         }
+@@ -1040,6 +1214,10 @@ public class WifiLayer {
+     //============================
+     
+     private void handleNetworkStateChanged(NetworkInfo info, String bssid) {
++        if (info == null) {
++            Log.w(TAG, "N3DS_SETTINGS_WIFI_NETWORK_STATE_MISSING");
++            return;
++        }
+         final AccessPointState ap = getCurrentAp();
+         NetworkInfo.DetailedState detailedState = info.getDetailedState(); 
+ 
+@@ -1048,8 +1226,9 @@ public class WifiLayer {
+                     + detailedState + " on " + bssid + " matched to " + ap);
+         }
+ 
++        mIsConnected = info.isConnected();
+         handleDisablingScanWhileObtainingAddress(detailedState);
+-        
++
+         // This will update the AP with its new info
+         refreshStatus(ap, detailedState);
+         
+@@ -1081,7 +1260,7 @@ public class WifiLayer {
+              * failed status on the AP that failed.
+              */
+             setPrimaryAp(null);
+-            ap.setStatus(DetailedState.FAILED);
++            if (ap != null) ap.setStatus(DetailedState.FAILED);
+             
+             // Bring up error dialog
+             error(R.string.wifi_generic_connection_error);
+@@ -1123,6 +1302,72 @@ public class WifiLayer {
+         }
+     }
+     
++    /* N3DS_SETTINGS_UNKNOWN_SCAN_REMEMBERED_MERGE:
++     * An UNKNOWN scan remains non-open.  When the lower layer preserved
++     * explicit privacy, RSN, or WPA evidence, it may be merged with an
++     * already configured protected row for the exact same quoted SSID.  The
++     * existing state object retains its security/key metadata; credentials
++     * are never copied or logged. */
++    private static boolean isKnownProtectedSecurity(String security) {
++        return !TextUtils.isEmpty(security) &&
++                !AccessPointState.UNKNOWN.equals(security) &&
++                !AccessPointState.OPEN.equals(security);
++    }
++
++    private static String mergeRememberedProtectedSecurityLocked(
++            List<AccessPointState> list, String ssid, String candidate) {
++        for (int i = list.size() - 1; i >= 0; i--) {
++            final AccessPointState ap = list.get(i);
++            if (ap != null && ap.configured && ssid.equals(ap.ssid) &&
++                    isKnownProtectedSecurity(ap.security)) {
++                if (candidate != null &&
++                        !candidate.equals(ap.security)) {
++                    /* UNKNOWN evidence cannot distinguish conflicting saved
++                     * security classes for one SSID.  Leave the row unknown
++                     * and require explicit user selection instead. */
++                    return AccessPointState.UNKNOWN;
++                }
++                candidate = ap.security;
++            }
++        }
++        return candidate;
++    }
++
++    private static AccessPointState findConfiguredProtectedApLocked(
++            List<AccessPointState> list, String ssid, String security) {
++        for (int i = list.size() - 1; i >= 0; i--) {
++            final AccessPointState ap = list.get(i);
++            if (ap != null && ap.configured && ssid.equals(ap.ssid) &&
++                    security.equals(ap.security)) {
++                return ap;
++            }
++        }
++        return null;
++    }
++
++    private AccessPointState findUniqueRememberedProtectedApLocked(
++            List<AccessPointState> newScanList, String ssid) {
++        String security = mergeRememberedProtectedSecurityLocked(
++                newScanList, ssid, null);
++        security = mergeRememberedProtectedSecurityLocked(
++                mApScanList, ssid, security);
++        if (AccessPointState.UNKNOWN.equals(security)) return null;
++        security = mergeRememberedProtectedSecurityLocked(
++                mApOtherList, ssid, security);
++        if (TextUtils.isEmpty(security) ||
++                AccessPointState.UNKNOWN.equals(security)) return null;
++
++        AccessPointState ap = findConfiguredProtectedApLocked(
++                newScanList, ssid, security);
++        if (ap == null) {
++            ap = findConfiguredProtectedApLocked(mApScanList, ssid, security);
++        }
++        if (ap == null) {
++            ap = findConfiguredProtectedApLocked(mApOtherList, ssid, security);
++        }
++        return ap;
++    }
++
+     private void handleScanResultsAvailable() {
+         synchronized(this) {
+             // In the end, we'll moved the ones no longer seen into the mApOtherList
+@@ -1153,13 +1398,40 @@ public class WifiLayer {
+                     }
+                     
+                     final String ssid = AccessPointState.convertToQuotedString(scanResult.SSID);
+-                    String security = AccessPointState.getScanResultSecurity(scanResult);
+-                    
++                    final String reportedSecurity =
++                            AccessPointState.getScanResultSecurity(scanResult);
++                    final boolean unknownProtectedEvidence =
++                            AccessPointState.UNKNOWN.equals(reportedSecurity) &&
++                            AccessPointState.hasProtectedCapabilityEvidence(scanResult);
++                    AccessPointState rememberedAp = null;
++                    String security = reportedSecurity;
++
++                    /* N3DS_SETTINGS_SCAN_ROWS_V5: an unclassified scan is
++                     * never a displayable security type.  Resolve it only
++                     * through one exact, unambiguous saved protected profile;
++                     * otherwise suppress it before any UI callback. */
++                    if (AccessPointState.UNKNOWN.equals(reportedSecurity)) {
++                        if (unknownProtectedEvidence) {
++                            rememberedAp = findUniqueRememberedProtectedApLocked(
++                                    newScanList, ssid);
++                        }
++                        if (rememberedAp == null) {
++                            Log.w(TAG, "N3DS_SETTINGS_UNCLASSIFIED_SCAN_SUPPRESSED");
++                            continue;
++                        }
++                        security = rememberedAp.security;
++                        Log.i(TAG,
++                                "N3DS_SETTINGS_SAVED_SCAN_SECURITY_RESOLVED=" +
++                                security);
++                    }
++
+                     // See if this AP is part of a group of APs (e.g., any large
+                     // wifi network has many APs, we'll only show one) that we've
+-                    // seen in this scan
+-                    AccessPointState ap = findApLocked(newScanList, AccessPointState.NETWORK_ID_ANY,
+-                                                 AccessPointState.BSSID_ANY, ssid, security);
++                    // seen in this scan.  Only rows actually inserted into
++                    // newScanList count as already seen in this scan.
++                    AccessPointState ap = findApLocked(newScanList,
++                            AccessPointState.NETWORK_ID_ANY,
++                            AccessPointState.BSSID_ANY, ssid, security);
+ 
+                     // Yup, we've seen this network.
+                     if (ap != null) {
+@@ -1175,10 +1447,16 @@ public class WifiLayer {
+                         continue;
+                     }
+ 
+-                    // Find the AP in either our old scan list, or our non-seen
+-                    // configured networks list
+-                    ap = findApLocked(AccessPointState.NETWORK_ID_ANY, AccessPointState.BSSID_ANY,
+-                                ssid, security);
++                    // Reuse the resolved saved row first.  The old implementation
++                    // returned this object before it had entered newScanList,
++                    // then mistook it for a duplicate and skipped seen/UI updates.
++                    ap = rememberedAp;
++                    if (ap == null) {
++                        // Find the AP in either our old scan list, or our non-seen
++                        // configured networks list.
++                        ap = findApLocked(AccessPointState.NETWORK_ID_ANY,
++                                AccessPointState.BSSID_ANY, ssid, security);
++                    }
+ 
+                     if (ap != null) {
+                         // Remove the AP from both (no harm if one doesn't contain it)
+@@ -1189,8 +1467,14 @@ public class WifiLayer {
+ //                        if (LOGV) Log.v(TAG, "Created " + ap);
+                     }
+ 
+-                    // Give it the latest state
++                    // Give it the latest state, then restore the effective class
++                    // selected above.  For ordinary parsed results these are
++                    // identical; for an exact saved-profile resolution this
++                    // prevents the diagnostic UNKNOWN value reaching the UI.
+                     ap.updateFromScanResult(scanResult);
++                    if (!security.equals(ap.security)) {
++                        ap.setSecurity(security);
++                    }
+ 
+                     if (mCallback != null) {
+                         mCallback.onAccessPointSetChanged(ap, true);
+@@ -1238,7 +1522,8 @@ public class WifiLayer {
+         
+         if (wifiState == WIFI_STATE_ENABLED) {
+             loadConfiguredAccessPoints();
+-            attemptScan();
++            mIsConnected = false;
++            attemptAutoScan();
+ 
+         } else if (wifiState == WIFI_STATE_DISABLED) {
+             removeFutureScans();
+@@ -1307,7 +1592,7 @@ public class WifiLayer {
+         public void handleMessage(Message msg) {
+             switch (msg.what) {
+                 case MESSAGE_ATTEMPT_SCAN:
+-                    attemptScan();
++                    attemptAutoScan();
+                     break;
+             }
+         }
+diff --git a/src/com/android/settings/wifi/WifiSettings.java b/src/com/android/settings/wifi/WifiSettings.java
+index cac77e3251fde365f3e32463f4c44712fd0b1944..91e310fec86415a069f24f384ea9a231e705054f 100644
+--- a/src/com/android/settings/wifi/WifiSettings.java
++++ b/src/com/android/settings/wifi/WifiSettings.java
+@@ -325,10 +325,21 @@ public class WifiSettings extends PreferenceActivity implements WifiLayer.Callba
+      * it is secured and doesn't already have a password, it will bring up a
+      * password box. Otherwise it will just connect.
+      */
++    /* N3DS_SETTINGS_REMEMBERED_PROFILE_V2: resolve saved profiles through
++     * WifiLayer before deciding whether a credential dialog is needed. */
+     private void connectToNetwork(AccessPointState state) {
+-        if (state.hasSecurity() && !state.hasPassword()) {
++        if (state == null) {
++            return;
++        }
++        final boolean compatible =
++                mWifiLayer.hasCompatibleConfiguredNetwork(state);
++        final boolean changedSecurity = !compatible &&
++                mWifiLayer.hasConfiguredNetworkForSsid(state);
++        if ((state.hasSecurity() && !compatible) || changedSecurity) {
++            Log.i(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_PROMPT");
+             showAccessPointDialog(state, AccessPointDialog.MODE_INFO);
+         } else {
++            Log.i(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_CONNECT");
+             mWifiLayer.connectToNetwork(state);
+         }
+     }
+@@ -364,7 +375,15 @@ public class WifiSettings extends PreferenceActivity implements WifiLayer.Callba
+                 mOpenNetworkNotificationsEnabled.isChecked() ? 1 : 0);
+         } else if (preference instanceof AccessPointPreference) {
+             AccessPointState state = ((AccessPointPreference) preference).getAccessPointState();
+-            showAccessPointDialog(state, AccessPointDialog.MODE_INFO);
++            /* N3DS_SETTINGS_REMEMBERED_PROFILE_V4: selecting a row is a
++             * connection action unless it is already fully connected. */
++            if (state != null && state.primary &&
++                    state.status == android.net.NetworkInfo.DetailedState.CONNECTED) {
++                showAccessPointDialog(state, AccessPointDialog.MODE_INFO);
++            } else {
++                Log.i(TAG, "N3DS_SETTINGS_REMEMBERED_PROFILE_ROW_CONNECT");
++        connectToNetwork(state);
++            }
+         }
+ 
+         return false;

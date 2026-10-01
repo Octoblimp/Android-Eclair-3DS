@@ -1,0 +1,6 @@
+# Source buttons are consumed by 3ds-navkey; START remains kernel power.
+# BTN_A (304) translated to KEY_ENTER by 3ds-navkey
+# BTN_B (305) translated to KEY_PROG1 by 3ds-navkey
+# BTN_Y (308) translated to KEY_BACK by 3ds-navkey
+# BTN_SELECT (314) becomes a timed synthetic KEY_POWER hold in 3ds-navkey
+# BTN_START (315) consumed by 3ds-pwrkey

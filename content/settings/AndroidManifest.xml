@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.settings"
+    android:sharedUserId="android.uid.system">
+
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="io.divergen.telco.ACCESS" />
+    <uses-permission android:name="android.permission.CLEAR_APP_USER_DATA" />
+    <uses-permission android:name="android.permission.RESTART_PACKAGES" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+
+    <application
+        android:label="@string/settings_label"
+        android:icon="@drawable/ic_launcher_settings"
+        android:taskAffinity="">
+
+        <activity android:name="Settings"
+            android:label="@string/settings_label"
+            android:taskAffinity="com.android.settings"
+            android:clearTaskOnLaunch="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.settings.SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".wifi.WifiSettings"
+            android:label="@string/wifi_settings" />
+        <activity android:name=".MobileDataSettings"
+            android:label="3DSTelco Mobile Data" />
+        <activity android:name=".WirelessAdbSettings"
+            android:label="Wireless ADB" />
+        <activity android:name="ApplicationSettings"
+            android:label="@string/applications_settings_header" />
+        <activity android:name="ManageApplications"
+            android:label="@string/manageapplications_settings_title"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="orientation|keyboardHidden" />
+        <activity android:name="InstalledAppDetails"
+            android:label="@string/application_info_label" />
+        <!-- N3DS_DEV_DEFAULTS: developer options are on, reachable from the
+             root screen and from Applications, where the stock screen linked
+             these two activities without either being declared (a tap was an
+             ActivityNotFoundException).  Both classes were already compiled
+             into the APK.  No double hyphens in this comment: XML forbids
+             them inside a comment and aapt stops at the first one. -->
+        <activity android:name="DevelopmentSettings"
+            android:label="@string/development_settings_title">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.android.settings.APPLICATION_DEVELOPMENT_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name="RunningServices"
+            android:label="@string/runningservices_settings_title"
+            android:clearTaskOnLaunch="true" />
+        <activity android:name=".deviceinfo.Memory"
+            android:label="@string/storage_settings_title" />
+        <activity android:name="LanguageSettings"
+            android:label="@string/language_keyboard_settings_title"
+            android:clearTaskOnLaunch="true" />
+        <activity android:name="DateTimeSettings"
+            android:label="@string/date_and_time" />
+        <activity android:name="DeviceInfoSettings"
+            android:label="@string/device_info_settings" />
+        <!-- N3DS_SETTINGS_SCREENS_328: screens the shipped preference XML
+             and code link to that were never declared, so tapping them was
+             an ActivityNotFoundException that killed Settings (Status and
+             Battery use under About phone, Wi-Fi Advanced, Language, Time
+             zone). Status deliberately has no android:process attribute:
+             it runs here, not in com.android.phone. -->
+        <activity android:name=".deviceinfo.Status"
+            android:label="@string/device_status_activity_title" />
+        <activity android:name=".fuelgauge.PowerUsageSummary"
+            android:label="@string/power_usage_summary_title" />
+        <activity android:name=".fuelgauge.PowerUsageDetail"
+            android:label="@string/details_title" />
+        <activity android:name=".wifi.AdvancedSettings"
+            android:label="@string/wifi_ip_settings_titlebar" />
+        <activity android:name="LocalePicker"
+            android:label="@string/language_picker_title" />
+        <activity android:name="ZoneList"
+            android:label="@string/choose_timezone" />
+        <!-- N3DS_PLATLOGO_EASTER_EGG (#327): About phone, tap Firmware
+             version three times quickly: the bugdroid (#328). Not exported. -->
+        <activity android:name="PlatLogoActivity"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:exported="false" />
+    </application>
+</manifest>

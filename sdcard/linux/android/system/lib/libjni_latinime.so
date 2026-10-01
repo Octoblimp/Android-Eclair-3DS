@@ -1,0 +1,3 @@
+N3DS_STATIC_JNI_LIBS placeholder: libjni_latinime is linked into
+/system/bin/app_process and found by dalvik/vm/Native.c; this file only
+lets PathClassLoader.findLibrary() resolve the name.

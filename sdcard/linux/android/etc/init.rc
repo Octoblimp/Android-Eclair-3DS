@@ -1,0 +1,514 @@
+# The "real" init.rc -- service and "on boot" definitions. Imported by the
+# initramfs's own minimal /init.rc once /etc is bind-mounted.
+#
+# SOURCE OF TRUTH: this file, at
+#   third_party/buildroot/board/nintendo3ds/rootfs_overlay/etc/init.rc
+# Run scripts/sync_android_to_sdcard.sh to push it (and every other file in
+# that overlay directory) to sd:/linux/android/etc/. Do NOT edit the SD-card
+# copy -- it is overwritten. Until 2026-08-04 the SD copy was the only copy and
+# was hand-edited in place, and the two had already drifted by 1.7 KB (this
+# overlay copy was missing the vm tuning and watchdog_thresh blocks below).
+#
+# 2026-08-04: this file used to boot a *diagnostic* system -- three sequential
+# Dalvik-VM smoketests, a dynamic-linker smoketest and a 320s-later dmesg
+# capture -- with the Zygote only ever existing as a timed, then killed,
+# subprocess of one of them. It now boots Android: servicemanager, the
+# compositor, then a real zygote service that starts system_server, spelled the
+# same way upstream's own system/core/rootdir/init.rc spells it.
+# See docs/HANDOFF.md.
+
+on boot
+    # N3DS_BINDER_NICE_LIMIT: without this every binder transaction that asks
+    # for a priority logs "RLIMIT_NICE not set", roughly twice a second, and
+    # the kernel ring buffer wraps within a minute of the home screen -- which
+    # is how the boot log and every driver probe line in it kept disappearing.
+    # 40 is the value AOSP uses; it maps to a nice floor of -20, so binder can
+    # actually do the priority inheritance it is asking for. Inherited by
+    # zygote and therefore by every app.
+    setrlimit 13 40 40
+    # N3DS_CSND_AUDIO: /dev/eac is the CSND PCM sink (see ctr_csnd.c). Android
+    # has no audio HAL in this image yet, so for now this is what the on-device
+    # test writer opens; the permissions are the ones AudioHardwareGeneric will
+    # need when libaudio is built.
+    chmod 0666 /dev/eac
+    # N3DS_CRASH_TO_KMSG: RuntimeInit mirrors uncaught
+    # exceptions here so a crash trace reaches
+    # boot_progress.txt instead of being rotated out of the
+    # 256 KB logcat ring. devtmpfs makes this 0600 root:root
+    # and apps are not root, so without this the mirror is a
+    # silent no-op for every process that matters.
+    # Write-only: nothing needs to read the kernel ring back.
+    chmod 0622 /dev/kmsg
+    # N3DS_UPDATE_SAFE_PREFS: expose the physical SD namespace at the
+    # Android-facing path requested by apps and initialize it before
+    # class_start launches zygote/system_server.
+    mkdir /sdcard 0755 root root
+    mount none /mnt/sd/linux/android /sdcard bind
+    # N3DS_WIFI_LED_INIT_STATE: initialize OFF, then let WifiService
+    # drive ON/OFF through the property actions below. Never blink here:
+    # scanning, association, and disconnected idle are still Wi-Fi ON.
+    chmod 0666 /dev/i2c-2
+    # N3DS_WAKELOCK_PERMS: power_attr() makes these 0644 root:root, but
+    # system_server runs as uid system and libhardware_legacy opens all
+    # three O_RDWR. Without this, every acquire_wake_lock() fails and
+    # PowerManagerService silently degrades.
+    chown system system /sys/power/wake_lock
+    chown system system /sys/power/wake_unlock
+    chown radio system /sys/power/state
+    chmod 0660 /sys/power/wake_lock
+    chmod 0660 /sys/power/wake_unlock
+    chmod 0660 /sys/power/state
+    setprop sys.wifi.led off
+    hostname n3ds
+    mkdir /data/misc 01771 system misc
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    copy /system/etc/wifi/wpa_supplicant.conf /data/misc/wifi/wpa_supplicant.conf
+    # Import the durable file last so the packaged fallback cannot overwrite
+    # it.  This is synchronous and still precedes the Wi-Fi service.
+    exec /etc/android_prefs_init.sh
+    # N3DS_PRUNE_RETIRED_APPS: sdcard.zip is extracted over the card and can
+    # never delete, so apps this build retired (stock Contacts in #317) would
+    # still be on it and PackageManager would install them.  Synchronous, and
+    # ahead of class_start, so it lands before the package scan.
+    exec /etc/prune_retired_apps.sh
+    chown wifi wifi /data/misc/wifi/wpa_supplicant.conf
+    chmod 0660 /data/misc/wifi/wpa_supplicant.conf
+    mkdir /data/system 0775 system system
+    mkdir /data/system/wpa_supplicant 0770 wifi wifi
+    chmod 0770 /data/misc/wifi
+    chmod 0770 /data/system/wpa_supplicant
+
+# init's own log level. 3 (the default) is ERROR-only, which hides
+# NOTICE("starting '%s'") and NOTICE("process '%s', pid %d exited") -- i.e. it
+# hides every service start, crash and restart in the system. 6 (INFO, the
+# true max -- init/util.c's log_write only ever emits levels 3/5/6) also logs
+# the result of *every* init.rc command. Previously capped at 5 to skip that
+# firehose; back to 6 because the physical screen is empty and there is no
+# other way to tell what a given init.rc line actually did.
+    loglevel 6
+
+# The oom_adj classes and their memory thresholds ActivityManagerService's
+# constructor reads via SystemProperties.get(...) + Integer.valueOf() with no
+# fallback -- real AOSP sets these from system/rootdir/init.rc (upstream
+# values, unchanged here). Our own init.rc never set them, so every one of
+# these calls returned "" and threw NumberFormatException, which killed
+# system_server and exited the zygote right after "Activity Manager" in the
+# boot log (ActivityManagerService.java:1465). Must run before class_start.
+    setprop ro.FOREGROUND_APP_ADJ 0
+    setprop ro.VISIBLE_APP_ADJ 1
+    setprop ro.SECONDARY_SERVER_ADJ 2
+    setprop ro.BACKUP_APP_ADJ 2
+    setprop ro.HOME_APP_ADJ 4
+    setprop ro.HIDDEN_APP_MIN_ADJ 7
+    setprop ro.CONTENT_PROVIDER_ADJ 14
+    setprop ro.EMPTY_APP_ADJ 15
+    setprop ro.FOREGROUND_APP_MEM 1536
+    setprop ro.VISIBLE_APP_MEM 2048
+    setprop ro.SECONDARY_SERVER_MEM 4096
+    setprop ro.BACKUP_APP_MEM 4096
+    setprop ro.HOME_APP_MEM 4096
+    setprop ro.HIDDEN_APP_MEM 5120
+    setprop ro.CONTENT_PROVIDER_MEM 5632
+    setprop ro.EMPTY_APP_MEM 6144
+
+# Lockup forensics. The soft-lockup watchdog normally prints a backtrace for
+# the CPU it caught and only that CPU -- but in this project's lockups the
+# interesting CPU is the one that is *not* reported. lockup_latest.jpg shows
+# CPUs 0, 2 and 3 each getting a "BUG: soft lockup" while CPU 1 stays silent,
+# which is the signature of CPU 1 sitting in a non-preemptible section with
+# interrupts disabled while everyone else spins on an IPI or spinlock it
+# owns (a userspace CPU hog cannot cause a soft lockup at all -- the
+# detector runs on the RT stopper thread, which preempts userspace). This
+# makes the handler dump every CPU's stack, including that one. Costs
+# nothing until a lockup actually happens.
+    write /proc/sys/kernel/softlockup_all_cpu_backtrace 1
+# CONFIG_DETECT_HUNG_TASK is now enabled; report tasks stuck in D state,
+# never panic on them -- a report is what we want, a dead console is not.
+    write /proc/sys/kernel/hung_task_panic 0
+
+# Soft lockup at 2x this, so 30 => 60s. The default 10 (=> 20s) turned a slow
+# but *progressing* boot into a self-sustaining disaster: each report prints
+# four full backtraces (softlockup_all_cpu_backtrace, above) to tty0, which is
+# a software-rotated 24bpp framebuffer console -- fbcon=rotate:1 means every
+# glyph is rotated pixel-by-pixel in software and every scroll is a full
+# redraw. Emitting that much text takes long enough to trip the *next* CPU's
+# watchdog, which prints four more backtraces, forever. lockup_latest.jpg is
+# a screenful of exactly that feedback loop. Detection is kept; the hair
+# trigger is not.
+    write /proc/sys/kernel/watchdog_thresh 30
+
+# Memory tuning for a 256 MB device with no swap, where the only backing store
+# for *everything* -- rootfs, /system, /etc, /usr, /data and every mmap'd
+# dalvik-cache .dex -- is one slow vfat volume behind virtio-over-PXI.
+#
+# min_free_kbytes: the kernel's emergency reserve. The default works out to
+# ~1.5 MB here, which leaves almost no headroom for the GFP_ATOMIC and
+# PF_MEMALLOC allocations the block completion path itself needs while the
+# machine is already in direct reclaim. 8 MB out of 248 MB is cheap.
+#
+# 2026-08-04 (late, follow-up): bumped 8192 -> 16384. The 8 MB value was
+# validated against a boot that had to cold-dexopt exactly one jar
+# (services.jar, in the 17:01 boot log). A boot starting from a fully empty
+# /data/dalvik-cache has to cold-dexopt core.jar + framework.jar +
+# services.jar + Launcher2.apk back to back -- several times the verify/
+# optimize + odex-write working set of anything previously survived -- and
+# that boot reproduced the same rcu_sched-self-detected-stall signature the
+# ctr_pxi.c workqueue/atomic-fifo fixes were built to eliminate (crash.jpg).
+# Doubling the reserve is cheap insurance while the real root cause (see
+# docs/HANDOFF.md) is pinned down with real hardware forensics.
+    write /proc/sys/vm/min_free_kbytes 16384
+# Cap dirty page accumulation so writeback happens steadily instead of in
+# multi-second storms against the SD card (logcat and dump_bootlog.sh both
+# write there continuously).
+    write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/dirty_ratio 10
+# Nothing here should ever be handed memory it cannot get; failing an
+# allocation is recoverable, thrashing forever is not.
+    write /proc/sys/vm/overcommit_memory 0
+
+    class_start default
+
+# ---------------------------------------------------------------------------
+# Services. init's class_start walks these in definition order.
+# ---------------------------------------------------------------------------
+
+# servicemanager first: it is the binder context manager that libbinder's
+# defaultServiceManager() resolves handle 0 to, and every framework process
+# needs it. (libbinder retries in a sleep loop, so this ordering is for
+# cleanliness, not a race fix.)
+#
+# NOTE: /usr/sbin (not /sbin) -- /sbin only holds the busybox applet symlink
+# forest baked into the initramfs cpio, not arbitrary bionic binaries.
+# servicemanager lives on the SD card under /usr/sbin, reached through the
+# /usr bind mount, so it's addressed directly.
+# Deliberately NOT "critical". init.c's SVC_CRITICAL handling reboots into
+# recovery mode after 4 crashes in 4 minutes -- and this device has no
+# recovery to reboot into, so that would turn a diagnosable crash loop into
+# an undiagnosable one.
+service servicemanager /usr/sbin/servicemanager
+    class default
+    user root
+    group root
+
+# PackageManager's privileged filesystem helper.  It creates application data
+# directories with their assigned Unix UIDs; a missing socket left every
+# package at uid 0 on the former VFAT-backed /data tree.
+service installd /system/bin/installd
+    class default
+    socket installd stream 600 system system
+
+# The compositor. Owns /dev/graphics/fb1 (the bottom screen) through the
+# gralloc HAL, and every window's Surface. WindowManagerService's constructor
+# binds to android.view.Surface/SurfaceSession, which are binder calls into
+# this process -- with it absent WindowManagerService throws, and with
+# WindowManagerService absent there is no UI at all, which is where this port
+# has been stuck.
+#
+# Software all the way down: SurfaceFlinger -> libagl (software OpenGL ES) ->
+# libpixelflinger -> gralloc -> fb1. There is no GPU driver on this hardware.
+#
+# EXECUTED DIRECTLY, NOT THROUGH A WRAPPER. This used to be
+# /etc/surfaceflinger.sh, which slept 20s, ran `setprop ctl.stop bootanim`,
+# polled `pidof bootanimation`, and only then exec'd the real binary -- all to
+# keep bootanimation off the panel. On the 2026-08-04 boot that script printed
+# its "stopping bootanim" line at t=30.9s and then never printed anything
+# again: no "starting", no exec, and SurfaceFlinger never registered with
+# servicemanager, so system_server sat in "Waiting for sevice SurfaceFlinger..."
+# forever and the panel froze on the last boot-animation frame. The panel
+# handoff is now owned by bootanimation's own deadline instead (see the bootanim
+# service below), so nothing has to run between init and the compositor.
+service surfaceflinger /system/bin/surfaceflinger
+    class default
+    user root
+    group root
+
+# N3DS_BOOT_SOUND: the power-on clip, /system/media/bootsound.pcm written
+# straight to /dev/eac (the ctr_csnd misc device). This runs long before zygote,
+# so there is no AudioFlinger to ask and no MediaPlayer to construct.
+#
+# It used to be a backgrounded `cat` inside bootanim.sh, which was wrong twice
+# over. The sound inherited the boot animation's lifetime, and
+# SurfaceFlinger::bootFinished() stops bootanim the moment the first frame of UI
+# is ready -- mid-clip. And mediaserver, declared below, opens /dev/eac from
+# AudioHardwareGeneric's constructor; before kernel #311 that open stopped the
+# channel and zeroed the ring, so the clip restarted from wherever the writer
+# had reached and only its tail was ever heard.
+#
+# Declared ahead of mediaserver because class_start walks services in
+# definition order, so the sound claims the channel first. The driver now
+# refuses to reset a channel another writer has claimed, which is the actual
+# fix; this ordering is belt and braces.
+#
+# oneshot: it plays once. It is not `critical` and nothing waits on it -- the
+# script caps itself at 15 s of wall clock and exits 0 on every failure path,
+# because no part of the boot may ever depend on audio completing.
+service bootsound /etc/bootsound.sh
+    class default
+    oneshot
+    user root
+    group root
+
+# N3DS_MEDIASERVER: the full frameworks/base mediaserver -- AudioFlinger,
+# MediaPlayerService, CameraService and AudioPolicyService, all four (see
+# media/mediaserver/main_mediaserver.cpp). The comment that used to sit here
+# said the three audio services had been stripped for want of a HAL; that was
+# true before the audio stack was built and has not been true since. It matters
+# for boot ordering: AudioFlinger's constructor reaches AudioHardwareGeneric,
+# whose constructor opens /dev/eac. That is the second opener the boot sound has
+# to survive, and it is why bootsound is declared above this.
+#
+# "media.camera" is still the single thing standing between
+# android.hardware.Camera and a dead Camera.open().
+#
+# The HAL behind it is AOSP's CameraHardwareStub: preview is a generated test
+# pattern, takePicture() returns a canned JPEG. The MT9V113 sensors are alive
+# but the CAM block's register map is undocumented (docs/CAMERA_RESEARCH.md),
+# so the stub is what proves the whole Android path end to end until a real
+# capture path exists. When one does, only the HAL changes.
+#
+# group camera: /dev/ctr_cam* and the sensor nodes are camera-gid, and
+# platform.xml maps android.permission.CAMERA to that gid.
+service mediaserver /system/bin/mediaserver
+    class default
+    user root
+    group root camera graphics inet
+
+# The boot splash. /system/bin/bootanimation is frameworks/base's own
+# bootanimation with its SurfaceFlinger/EGL/Skia backend replaced by a direct
+# framebuffer one; it plays the real /system/media/bootanimation.zip on the
+# bottom screen (fb1), centred. init no longer draws /initlogo.rle at all.
+#
+# oneshot: this is a splash screen, it runs once. It ends when
+# SurfaceFlinger::bootFinished() does property_set("ctl.stop", "bootanim") --
+# the upstream mechanism -- or, if the boot never gets that far, when its own
+# BOOTANIM_MAX_SECONDS alarm fires (default 20s, see bootanimation_main.cpp).
+# Without oneshot, init would restart it after either of those and it would
+# take the panel back from the compositor.
+service bootanim /etc/bootanim.sh
+    class default
+    oneshot
+    user root
+    group root
+
+# The one and only way to read Android's own logs on this device. The real
+# app_process links the real liblog, which writes to /dev/log/main (the
+# kernel logger char device Phase 3 ported) -- not to stdout, not to dmesg.
+# Without this every ALOG line in the system is invisible.
+#
+# This replaces the old app_process_debug/liblog_fake arrangement, where the
+# whole framework log was fprintf()'d to stderr into a file under /tmp --
+# i.e. into tmpfs, unreclaimable RAM on a 256 MB device with no swap,
+# growing without bound for as long as system_server ran. Size-bounded here
+# instead: 4 x 256 KB rotating files on the SD card.
+service logcat /etc/logcat.sh
+    class default
+    user root
+    group root
+
+# Live mirror of the same log straight to the top-screen debug console
+# (/dev/tty0) -- see logcat_console.sh. Added back so a session can be read
+# directly off the physical screen instead of needing logcat.txt pulled off
+# the card. Independent reader of /dev/log/main, does not affect logcat.sh's
+# SD-card copy above. Filtered to W (warning) and above: the 2026-08-05
+# freeze evidence pinned the whole-kernel stall in the printk/fbcon console
+# path (heartbeat died at t~67s, ps still worked at t~70s), and this mirror
+# was the heaviest traffic source into the software-rotated fbcon. See
+# logcat_console.sh. Bump back to full verbosity only for a debug boot.
+service logcatcon /etc/logcat_console.sh
+    class default
+    user root
+    group root
+
+# Cheap proof-of-life line to /dev/kmsg (and therefore the top-screen
+# console) every 2s, independent of Dalvik/zygote/surfaceflinger/the SD
+# card. See etc/heartbeat.sh for why: every other diagnostic here depends on
+# the SD/virtio-blk path, which has already been root-caused once as a
+# lockup source, and the last two sessions' freezes left zero files on the
+# card. If this stops advancing in a photo/video of a freeze, that's real
+# evidence of a genuine whole-kernel freeze, not just an Android hang.
+service heartbeat /etc/heartbeat.sh
+    class default
+    user root
+    group root
+
+# The real Android boot. Upstream system/core/rootdir/init.rc spells this
+# line the same way. -verbose:class/jni/gc (each its own exact-match dash-arg
+# in vm/Init.c -- "-verbose:gc,jni" is NOT accepted despite the JNI spec
+# allowing it) was added here for VM-level tracing while chasing the JNI ABI
+# double bug and the zygote startup freeze -- removed 2026-08-05 now that
+# both are resolved/understood: the 2026-08-05 boot showed dalvikvm's own
+# bootstrap classloading spam (~2000 logcat lines for ~40 java.lang.* classes)
+# taking ~10 minutes because every verbose print is a write() contending with
+# dexopt's simultaneous SD/FAT writeback storm (docs/HANDOFF.md). Re-add
+# on-demand only, never leave on for a normal boot. All dash-args must precede
+# /system/bin because AndroidRuntime::addVmArguments() stops consuming
+# dash-args at the first non-dash one (see docs/HANDOFF.md's -Xzygote recap).
+# The `socket` line creates /dev/socket/zygote and passes the fd as
+# ANDROID_SOCKET_zygote, which ZygoteInit.registerZygoteSocket() requires.
+service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
+    class default
+    user root
+    group root
+    socket zygote stream 666
+
+# Crash log dumper: runs FIRST on every boot to save any pstore/ramoops
+# records from a previous panic to crash_log.txt / logcat_crash.txt.
+service pstore_dump /etc/dump_pstore.sh
+    class default
+    class default
+    oneshot
+    user root
+    group root
+
+service bootlog /etc/dump_bootlog.sh
+    disabled
+    class default
+    class default
+    oneshot
+    user root
+    group root
+
+# Watches dmesg for the lockup signatures this port keeps hitting and dumps
+# the full kernel log (with the all-CPU backtraces enabled above) to the SD
+# card the moment one appears, instead of relying on a fixed-delay capture
+# that either runs too early to see it or never runs at all because the
+# machine is already wedged by the time it would have fired.
+service lockupwatch /etc/lockup_watch.sh
+    disabled
+    class default
+    user root
+    group root
+
+# Cheap incremental dmesg/free/ps checkpoint, overwritten every ~3s from very
+# early in boot. lockup_watch.sh only writes anything once a lockup signature
+# has already appeared in dmesg, and dump_bootlog.sh only snapshots at
+# t~0-15s and once more at t~30s -- neither gives any evidence for a wedge
+# that happens between t=30s and whichever trigger fires, or never fires
+# (crash.jpg's rcu_sched stall was at t~76s). This guarantees *something*
+# survives on the card up to within ~3s of a total wedge, however early it
+# happens. See docs/HANDOFF.md.
+service bootprogress /etc/boot_progress.sh
+    class default
+    user root
+    group root
+
+# N3DS_NO_TTY0_SHELL (#325): there is no root shell on the top screen any
+# more. The kernel VT binds every EV_KEY input device as a keyboard, so the
+# old `service console /system/bin/sh` here read the console's own buttons:
+# every press echoed onto tty0 and A (KEY_ENTER) ran the accumulated line
+# as root. adb (Wireless ADB) is the shell into this device.
+
+
+# N3DS_BOOT_IO_QUIET: never compete with init/zygote for the single FAT-backed
+# virtio queue. Heartbeat and warning-only tty logging remain active; bounded
+# persistent collection begins only after Android reaches userspace.
+on property:sys.boot_completed=1
+    # N3DS_UPDATE_SAFE_PREFS_BOOT_COMPLETED: persist runtime Wi-Fi
+    # changes after Android has initialized.
+    start prefs_sync
+    start logcat
+    start bootlog
+
+
+# N3DS_REQUESTED_EARLY_LOGS: hardware now reaches HOME with the bounded ARM9
+# storage service. Preserve early-boot forensics requested by the user while
+# leaving the duplicate bootlog and lockupwatch FAT writers disabled.
+
+# Wi-Fi authentication daemon
+# N3DS_UPDATE_SAFE_PREFS: this privileged init service copies runtime
+# changes back to the durable namespace after boot.
+service prefs_sync /etc/android_prefs_init.sh --watch
+    class default
+    disabled
+    user root
+    group root
+
+service wpa_supplicant /etc/wpa_supplicant_diag.sh
+    class default
+    disabled
+    socket wpa_wlan0 dgram 660 wifi wifi
+    class default
+    oneshot
+
+
+# Android 2.0's libnetutils starts a service named "dhcpcd" and waits for
+# dhcp.wlan0.* properties.  Buildroot ships udhcpc instead, so keep it in the
+# foreground under init and translate its lease into Android's property ABI.
+service dhcpcd /sbin/udhcpc -f -i wlan0 -s /etc/android_udhcpc.sh
+    class default
+    disabled
+    user root
+    group root wifi inet
+
+
+# N3DS_WIFI_LED_INIT_STATE: each transition is a short, privileged
+# I2C transaction. Both services are oneshot and disabled; property actions
+# below start them on radio enable/disable and during shutdown.
+service wifi_led_on /etc/wifi_led_state.sh on
+    class default
+    disabled
+    oneshot
+    user root
+    group root
+
+service wifi_led_off /etc/wifi_led_state.sh off
+    class default
+    disabled
+    oneshot
+    user root
+    group root
+
+on property:sys.wifi.led=on
+    start wifi_led_on
+
+on property:sys.wifi.led=off
+    start wifi_led_off
+
+# Leave the hardware in the safe OFF state during orderly shutdown. The
+# radio path normally turns it off first; these triggers cover power-menu and
+# framework shutdown paths that do not call WifiService.setWifiEnabled(false).
+# N3DS_ROOT_POWER_FINALIZER: system_server cannot safely exec the shutdown
+# script itself (it is uid system, not uid root). SELECT raises this private
+# sys.* request; init starts the oneshot as root, exactly like START's
+# kernel.poweroff_cmd path.
+service ctr_poweroff /etc/ctr_poweroff.sh
+    class core
+    disabled
+    oneshot
+    user root
+    group root
+
+on property:sys.n3ds.poweroff=1
+    start ctr_poweroff
+    setprop sys.n3ds.poweroff 0
+
+on property:sys.powerctl=*
+    start wifi_led_off
+
+on property:sys.shutdown.requested=*
+    start wifi_led_off
+
+# N3DS_ADB_ALWAYS_ROOT: the 3DS has no USB gadget path, and per explicit
+# request this device ships pre-rooted -- adbd starts at every boot as root,
+# with build.prop publishing service.adb.tcp.port=5555. Boot behaviour is
+# deliberately unchanged: adb is up and listening before anything can toggle
+# it, and a reboot always returns to that default.
+#
+# N3DS_WIRELESS_ADB_TCP_ONLY: what the triggers below restore is the Settings
+# "Wireless ADB" checkbox. It only writes service.adb.tcp.port, and adbd reads
+# that port exactly once at startup, so a live change needs init to cycle the
+# daemon. Without these two triggers the checkbox wrote a property nothing
+# read, and the UI claimed to disable a root shell that stayed up. The service
+# is intentionally NOT marked `disabled` -- turning adb off is a per-boot
+# decision, not a persistent one.
+service adbd /system/bin/adbd
+    class default
+    user root
+    group shell log input inet graphics sdcard_rw
+
+on property:service.adb.tcp.port=5555
+    start adbd
+
+on property:service.adb.tcp.port=0
+    stop adbd

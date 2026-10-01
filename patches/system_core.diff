@@ -1,0 +1,843 @@
+diff --git a/adb/adb.c b/adb/adb.c
+index c1646b807b5a43d2b50638c82a65b146a88c178e..9f989dcbc5ba5490b7714e66428acb99130bbaf9 100644
+--- a/adb/adb.c
++++ b/adb/adb.c
+@@ -913,17 +913,30 @@ int adb_main(int is_daemon)
+ 
+         D("Local port 5037 disabled\n");
+     } else {
+-        if(install_listener("tcp:5037", "*smartsocket*", NULL)) {
+-            exit(1);
+-        }
++        /* N3DS_ADBD_NO_DEVICE_HOST_LISTENER: 5037 is the PC adb server's
++         * smart-socket protocol, not the device transport. A failed optional
++         * bind here used to exit(1) before local_init could open port 5555.
++         * Device shell/sync/JDWP services use the transport, not this listener. */
+     }
+ 
+         /* for the device, start the usb transport if the
+         ** android usb device exists and "service.adb.tcp"
+         ** is not set, otherwise start the network transport.
+         */
++    /* N3DS_ADBD_TCP_FAIL_CLOSED: no USB/default-port fallback when
++     * debugging is disabled or a property is malformed. */
++    property_set("sys.adb.tcp.ready", "0");
+     property_get("service.adb.tcp.port", value, "0");
+-    if (sscanf(value, "%d", &port) == 1 && port > 0) {
++    {
++        char *end;
++        long requested = strtol(value, &end, 10);
++        if (value[0] < '0' || value[0] > '9' || *end != '\0' ||
++            requested < 1 || requested > 65535) {
++            return 0;
++        }
++        port = (int)requested;
++    }
++    if (port > 0) {
+         // listen on TCP port specified by service.adb.tcp.port property
+         local_init(port);
+     } else if (access("/dev/android_adb", F_OK) == 0) {
+diff --git a/adb/services.c b/adb/services.c
+index b5df5542b935c30e432d7ed2eb1317aa53dfa59b..7ccd27d81add8617c0186b7eb9bd343222297c52 100644
+--- a/adb/services.c
++++ b/adb/services.c
+@@ -322,7 +322,8 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
+ #if ADB_HOST
+ #define SHELL_COMMAND "/bin/sh"
+ #else
+-#define SHELL_COMMAND "/system/bin/sh"
++/* N3DS_ADBD_ROOTFS_SHELL: Android is hosted below the Buildroot rootfs. */
++#define SHELL_COMMAND "/bin/sh"
+ #endif
+ 
+ int service_to_fd(const char *name)
+diff --git a/adb/transport_local.c b/adb/transport_local.c
+index 81d120ef119fd0ece23e6ee9f2319d4f90571083..1e7437da41b65652a75ad8ad9d1d37ae032ea355 100644
+--- a/adb/transport_local.c
++++ b/adb/transport_local.c
+@@ -25,6 +25,9 @@
+ #define  TRACE_TAG  TRACE_TRANSPORT
+ #include "adb.h"
+ 
++/* N3DS_ADBD_TCP_READY: implemented in the TCP-only platform adapter. */
++extern void n3ds_adbd_tcp_status(int port, int error);
++
+ #ifdef __ppc__
+ #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
+ static inline void fix_endians(apacket *p)
+@@ -153,6 +156,7 @@ static void *server_socket_thread(void * arg)
+     struct sockaddr addr;
+     socklen_t alen;
+     int port = (int)arg;
++    int last_bind_error = 0;
+ 
+     D("transport: server_socket_thread() starting\n");
+     serverfd = -1;
+@@ -160,11 +164,16 @@ static void *server_socket_thread(void * arg)
+         if(serverfd == -1) {
+             serverfd = socket_inaddr_any_server(port, SOCK_STREAM);
+             if(serverfd < 0) {
+-                D("server: cannot bind socket yet\n");
++                int bind_error = errno;
++                if (bind_error != last_bind_error) {
++                    n3ds_adbd_tcp_status(port, bind_error);
++                    last_bind_error = bind_error;
++                }
+                 adb_sleep_ms(1000);
+                 continue;
+             }
+             close_on_exec(serverfd);
++            n3ds_adbd_tcp_status(port, 0);
+         }
+ 
+         alen = sizeof(addr);
+diff --git a/include/arch/linux-arm/AndroidConfig.h b/include/arch/linux-arm/AndroidConfig.h
+index 82e39c01dff7cfddd48422cfb2ac23c370f5bc5d..64c15c34f5bcc4fa38ac71616003d0a33851bb0b 100644
+--- a/include/arch/linux-arm/AndroidConfig.h
++++ b/include/arch/linux-arm/AndroidConfig.h
+@@ -317,4 +317,35 @@
+  */
+ #define HAVE_SCHED_H 1
+ 
++/*
++ * Debug build. NOT an upstream member of this header -- added for the 3DS
++ * port on 2026-08-04, reverted back to a debug build on 2026-08-04 (later
++ * session): the quiet build traded away the only diagnostic channel this
++ * project has (a bare screen + a log file that has to be pulled off the SD
++ * card) right when a still-unexplained crash/slowdown needed exactly that
++ * channel. See docs/HANDOFF.md for the reasoning.
++ *
++ * AOSP sets -DNDEBUG from the build system (TARGET_GLOBAL_CFLAGS for a
++ * release build). This port has no build system, just a directory of
++ * scripts/build_*.sh, and every one of them already does
++ *   -include system_core/include/arch/linux-arm/AndroidConfig.h
++ * on every translation unit, so this header is the single place that reaches
++ * the whole tree.
++ *
++ * Leaving NDEBUG undefined makes cutils/log.h default LOG_NDEBUG to 0, which
++ * compiles in *every* LOGV in the system, plus libbinder's
++ * IF_LOG_TRANSACTIONS / IF_LOG_COMMANDS / LOG_REMOTEREFS / LOG_THREADPOOL
++ * blocks, plus assert(). That is deliberate right now: this build needs
++ * maximum visibility, not minimum CPU/IO. If a future session needs a quiet
++ * build again, define NDEBUG from the build scripts' own -D flags rather
++ * than reintroducing a default here -- do not flip this header without a
++ * specific reason, since it silently guts the only diagnostics this project
++ * has.
++ */
++#if 0
++#ifndef NDEBUG
++#define NDEBUG 1
++#endif
++#endif
++
+ #endif /* _ANDROID_CONFIG_H */
+diff --git a/init/builtins.c b/init/builtins.c
+index 5a1b263789516c480eda09a31d6baa9fd8fde65f..a59b7c0fcdb971759846ce376ae4ba2263a2c410 100644
+--- a/init/builtins.c
++++ b/init/builtins.c
+@@ -29,6 +29,7 @@
+ #include <stdlib.h>
+ #include <sys/mount.h>
+ #include <sys/resource.h>
++#include <sys/wait.h>
+ #include <linux/loop.h>
+ 
+ #include "init.h"
+@@ -152,8 +153,49 @@ int do_domainname(int nargs, char **args)
+     return write_file("/proc/sys/kernel/domainname", args[1]);
+ }
+ 
++/* Runs args[1..nargs-1] as a command and blocks until it exits, unlike a
++ * "service" which is fire-and-forget. Needed so an "on boot" action can
++ * force ordering against class_start (e.g. "exec /etc/setup_swap.sh"
++ * before the VM-heavy default-class services start) -- init.rc has no
++ * other builtin that forks+waits. This was previously a stub returning
++ * -1 unconditionally (upstream real AOSP init didn't have "exec" yet at
++ * this vintage; the keyword table here already had a slot reserved for
++ * it). args has exactly nargs entries with NO trailing NULL (see
++ * parser.c's parse_line_action: a plain memcpy of the tokenized line),
++ * so a NULL-terminated argv for execv() has to be built locally rather
++ * than just pointing into args+1.
++ */
+ int do_exec(int nargs, char **args)
+ {
++    char *argv[16];
++    int i, n;
++    pid_t pid;
++    int status;
++
++    n = nargs - 1;              /* number of real argv entries */
++    if (n < 1 || n >= (int)(sizeof(argv) / sizeof(argv[0]))) {
++        return -1;
++    }
++    for (i = 0; i < n; i++) {
++        argv[i] = args[i + 1];
++    }
++    argv[n] = NULL;
++
++    pid = fork();
++    if (pid < 0) {
++        return -1;
++    }
++    if (pid == 0) {
++        execv(argv[0], argv);
++        _exit(127);
++    }
++
++    if (waitpid(pid, &status, 0) < 0) {
++        return -1;
++    }
++    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
++        return 0;
++    }
+     return -1;
+ }
+ 
+@@ -206,7 +248,18 @@ int do_insmod(int nargs, char **args)
+ 
+ int do_import(int nargs, char **args)
+ {
+-    return -1;
++    /* Recursively parse another .rc file, appending its "on"/"service"
++     * sections to the same global lists init.c's own parse_config_file()
++     * calls populate. Used to pull in the "real" service config from the
++     * SD card (sd:/linux/android/etc/init.rc) once /etc is bind-mounted --
++     * see the "on init" block in the initramfs's own /init.rc. Any "on
++     * init" section in the imported file will NOT re-fire (the "init"
++     * trigger has already been dispatched by the time this command runs,
++     * since import is itself a command inside that same action's list) --
++     * only sections triggered later (boot, property changes, services)
++     * are safe to define in an imported file.
++     */
++    return parse_config_file(args[1]);
+ }
+ 
+ int do_mkdir(int nargs, char **args)
+@@ -220,7 +273,20 @@ int do_mkdir(int nargs, char **args)
+     }
+ 
+     if (mkdir(args[1], mode)) {
+-        return -errno;
++        /* EEXIST is expected steady-state, not a failure: several of our
++         * mkdir targets live on the SD card and legitimately survive
++         * across reboots (sd:/linux/android/{,data,data/property} and
++         * friends), so treating "already there" as an error just spams
++         * every later boot with noise indistinguishable from a real
++         * problem. Only bail if it exists but isn't actually a directory. */
++        if (errno == EEXIST) {
++            struct stat st;
++            if (stat(args[1], &st) || !S_ISDIR(st.st_mode)) {
++                return -errno;
++            }
++        } else {
++            return -errno;
++        }
+     }
+ 
+     if (nargs >= 4) {
+@@ -250,6 +316,7 @@ static struct {
+     { "ro",         MS_RDONLY },
+     { "rw",         0 },
+     { "remount",    MS_REMOUNT },
++    { "bind",       MS_BIND },
+     { "defaults",   0 },
+     { 0,            0 },
+ };
+diff --git a/init/devices.c b/init/devices.c
+index ea1a825c5ba87e291d906ef34204a40b337723a2..bf958e334a5e05d31d518b2ce0fcd84f4ffcb793 100644
+--- a/init/devices.c
++++ b/init/devices.c
+@@ -649,6 +649,36 @@ int device_init(void)
+     coldboot(fd, "/sys/class");
+     coldboot(fd, "/sys/block");
+     coldboot(fd, "/sys/devices");
++
++    /* /sys/block/vda (the SD card, exposed as a virtio-blk device by the
++     * ARM9-side arm9linuxfw firmware over PXI) may not exist yet on the
++     * very first pass above -- ctr_pxi.c has its own up-to-5s retry loop
++     * for the ARM9/ARM11 boot-order race that registers it (see project
++     * memory: project_phase1_ctr_pxi_race_fix), which runs independently
++     * of and is not synchronized with this coldboot scan.
++     *
++     * This was masked for a long time by the initramfs itself: unpacking
++     * a ~20MB gzip'd cpio (the old, buildroot-produced rootfs.cpio.gz)
++     * took several seconds before /init's main() even started, which
++     * incidentally gave ctr_pxi.c's retry enough of a head start that
++     * /sys/block/vda already existed by the time this ran. The
++     * 2026-08-04 "everything off the initramfs" migration shrank the
++     * cpio to ~82KB, removing that incidental buffer -- coldboot() can
++     * now genuinely run before the SD card has been discovered at all,
++     * which showed up on real hardware as mount/mkdir/import all failing
++     * during "on init" (the vfat mount's source device node never
++     * existed, so nothing under it did either). coldboot()'s uevent
++     * "add" re-trigger is idempotent for devices already found, so
++     * re-running the whole pass costs nothing once the device is there.
++     */
++    {
++        int waited;
++        for (waited = 0; access("/dev/block/vda1", F_OK) != 0 && waited < 7000;
++             waited += 200) {
++            usleep(200000);
++            coldboot(fd, "/sys/block");
++        }
++    }
+     t1 = get_usecs();
+ 
+     log_event_print("coldboot %ld uS\n", ((long) (t1 - t0)));
+diff --git a/init/init.c b/init/init.c
+index 8c2a0582e4b8dd0d71d2f2fa53c7f53d15b57352..c631d0fb94457e9f4ac2fb7775b06b4d660871af 100644
+--- a/init/init.c
++++ b/init/init.c
+@@ -678,8 +678,19 @@ static void drain_action_queue(void)
+         INFO("processing action %p (%s)\n", act, act->name);
+         list_for_each(node, &act->commands) {
+             cmd = node_to_item(node, struct command, clist);
++            errno = 0;
+             ret = cmd->func(cmd->nargs, cmd->args);
+-            INFO("command '%s' r=%d\n", cmd->args[0], ret);
++            /* A failing init.rc command used to be logged only at INFO,
++             * which the default kernel loglevel drops on the floor -- so a
++             * failed "mount" (and with it /data, persistent properties and
++             * the boot log) left literally no trace anywhere. Failures are
++             * worth an ERROR. */
++            if (ret) {
++                ERROR("command '%s' FAILED r=%d errno=%d (%s)\n",
++                      cmd->args[0], ret, errno, strerror(errno));
++            } else {
++                INFO("command '%s' r=%d\n", cmd->args[0], ret);
++            }
+         }
+     }
+ }
+@@ -864,13 +875,20 @@ int main(int argc, char **argv)
+         console_name = strdup(tmp);
+     }
+ 
+-    fd = open(console_name, O_RDWR);
++    fd = open(console_name, O_RDWR | O_NOCTTY); /* O_NOCTTY: this is just a probe to test the console exists -- must NOT claim it as PID 1's own controlling tty, or the console service's later setsid()+open_console() can never acquire it (kernel only auto-assigns a ctty to a session with none already set). */
+     if (fd >= 0)
+         have_console = 1;
+     close(fd);
+ 
+-    if( load_565rle_image(INIT_IMAGE_FILE) ) {
+-    fd = open("/dev/tty0", O_WRONLY);
++    /* Upstream tries /initlogo.rle here and only falls back to the text
++     * banner below if it is missing. The boot splash is drawn by
++     * /system/bin/bootanimation now -- it plays the real bootanimation.zip on
++     * the bottom screen (fb1) -- so load_565rle_image() is not called at all.
++     * It targets fb0, which is the debug console on this device, and it flips
++     * the console to KD_GRAPHICS and back on the way through. The banner is
++     * kept: it lands on the top screen alongside the kernel log. */
++    {
++    fd = open("/dev/tty0", O_WRONLY | O_NOCTTY);  /* O_NOCTTY: PID 1 writing a one-shot banner must not steal the ctty the console service needs later, same reasoning as the console probe above */
+     if (fd >= 0) {
+         const char *msg;
+             msg = "\n"
+diff --git a/libcutils/atomic-android-armv6.S b/libcutils/atomic-android-armv6.S
+index a71308966c975cd65672d9e73a4c268384872d79..b16b4150718299727c02fbc45769dc46fc9d824a 100644
+--- a/libcutils/atomic-android-armv6.S
++++ b/libcutils/atomic-android-armv6.S
+@@ -33,128 +33,119 @@
+     
+ 
+ 
+-/* FIXME: On SMP systems memory barriers may be needed */
+-#warning  "this file is not safe with SMP systems"
+-
+-
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_write
+- * input: r0=value, r1=address
+- * output: void
++/* N3DS_ARMV6_SMP_ATOMICS:
++ *
++ * cutils/atomic.h promises that every operation synchronizes preceding memory,
++ * but Eclair's original ARMv6 file explicitly warned that it was unsafe on
++ * SMP and used bare LDREX/STREX with no data-memory barrier.  That can publish
++ * Dalvik interface-cache versions out of order on the four ARM11 cores.
++ *
++ * Linux exposes __kuser_cmpxchg at 0xffff0fc0.  On ARMv6 SMP the helper wraps
++ * its retrying LDREX/STREX sequence with the kernel's real SMP DMB operation.
++ * Build the read/modify/write APIs from that helper so their historical return
++ * contract is retained: all operations except write return the old value, and
++ * cmpxchg returns zero on success and non-zero on mismatch.
+  */
+ 
++__n3ds_kuser_cmpxchg:
++    ldr     r12, =0xffff0fc0
++    bx      r12
++
++/* input: r0=value, r1=address; output ignored */
+ android_atomic_write:
+-    str     r0, [r1]
+-    bx      lr;
++    b       android_atomic_swap
+ 
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_inc
+- * input: r0 = address
+- * output: r0 = old value
+- */
+- 
++/* input: r0=address; output: old value */
+ android_atomic_inc:
+-    mov     r12, r0
+-1:  ldrex   r0, [r12]
+-    add     r2, r0, #1
+-    strex   r1, r2, [r12]
+-    cmp     r1, #0
+-    bxeq    lr
+-    b       1b
+-
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_dec
+- * input: r0=address
+- * output: r0 = old value
+- */
+- 
++    stmfd   sp!, {r4-r6, lr}
++    mov     r6, r0
++1:  ldr     r4, [r6]
++    add     r1, r4, #1
++    mov     r0, r4
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=address; output: old value */
+ android_atomic_dec:
+-    mov     r12, r0
+-1:  ldrex   r0, [r12]
+-    sub     r2, r0, #1
+-    strex   r1, r2, [r12]
+-    cmp     r1, #0
+-    bxeq    lr
+-    b       1b
+-
+-    
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_add
+- * input: r0=value, r1=address
+- * output: r0 = old value
+- */
+-
++    stmfd   sp!, {r4-r6, lr}
++    mov     r6, r0
++1:  ldr     r4, [r6]
++    sub     r1, r4, #1
++    mov     r0, r4
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=value, r1=address; output: old value */
+ android_atomic_add:
+-    mov     r12, r0
+-1:  ldrex   r0, [r1]
+-    add     r2, r0, r12
+-    strex   r3, r2, [r1]
+-    cmp     r3, #0
+-    bxeq    lr
+-    b       1b
+-    
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_and
+- * input: r0=value, r1=address
+- * output: r0 = old value
+- */
+-
++    stmfd   sp!, {r4-r6, lr}
++    mov     r5, r0
++    mov     r6, r1
++1:  ldr     r4, [r6]
++    add     r1, r4, r5
++    mov     r0, r4
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=value, r1=address; output: old value */
+ android_atomic_and:
+-    mov     r12, r0
+-1:  ldrex   r0, [r1]
+-    and     r2, r0, r12
+-    strex   r3, r2, [r1]
+-    cmp     r3, #0
+-    bxeq    lr
+-    b       1b
+-
+-    
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_or
+- * input: r0=value, r1=address
+- * output: r0 = old value
+- */
+-
++    stmfd   sp!, {r4-r6, lr}
++    mov     r5, r0
++    mov     r6, r1
++1:  ldr     r4, [r6]
++    and     r1, r4, r5
++    mov     r0, r4
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=value, r1=address; output: old value */
+ android_atomic_or:
+-    mov     r12, r0
+-1:  ldrex   r0, [r1]
+-    orr     r2, r0, r12
+-    strex   r3, r2, [r1]
+-    cmp     r3, #0
+-    bxeq    lr
+-    b       1b
+-
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_swap
+- * input: r0=value, r1=address
+- * output: r0 = old value
+- */
+-
++    stmfd   sp!, {r4-r6, lr}
++    mov     r5, r0
++    mov     r6, r1
++1:  ldr     r4, [r6]
++    orr     r1, r4, r5
++    mov     r0, r4
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=value, r1=address; output: old value */
+ android_atomic_swap:
+-    swp     r0, r0, [r1]
+-    bx      lr
+-
+-/*
+- * ----------------------------------------------------------------------------
+- * android_atomic_cmpxchg
+- * input: r0=oldvalue, r1=newvalue, r2=address
+- * output: r0 = 0 (xchg done) or non-zero (xchg not done)
+- */
+-
++    stmfd   sp!, {r4-r6, lr}
++    mov     r5, r0
++    mov     r6, r1
++1:  ldr     r4, [r6]
++    mov     r0, r4
++    mov     r1, r5
++    mov     r2, r6
++    bl      __n3ds_kuser_cmpxchg
++    cmp     r0, #0
++    bne     1b
++    mov     r0, r4
++    ldmfd   sp!, {r4-r6, pc}
++
++/* input: r0=old, r1=new, r2=address; output: zero success, non-zero miss */
+ android_atomic_cmpxchg:
+-    mov     r12, r1
+-    ldrex   r3, [r2]
+-    eors    r0, r0, r3
+-    strexeq r0, r12, [r2]
+-    bx      lr
+-
++    b       __n3ds_kuser_cmpxchg
+ 
+ 
+ /*
+diff --git a/libcutils/atomic.c b/libcutils/atomic.c
+index 65d7af0af006c705ccf29ad70749a0c586aaa1fb..d78198001023058507a17d8c7bafeefa448dee38 100644
+--- a/libcutils/atomic.c
++++ b/libcutils/atomic.c
+@@ -166,7 +166,14 @@ int android_atomic_cmpxchg(int32_t oldvalue, int32_t newvalue, volatile int32_t*
+     int xchg;
+     asm volatile
+     (
+-    "   lock; cmpxchg %%ecx, (%%edx);"
++    /* addr is 64-bit on x86_64 -- GCC puts it in %rdx per the "d" operand
++     * constraint below, but the original 2009 source addressed it as
++     * "(%%edx)" (the 32-bit sub-register), truncating the pointer and
++     * dereferencing garbage. Never hit on the ARM device build (that's a
++     * separate #elif branch); only bites host tools like aapt. Fixed by
++     * addressing through %%rdx instead -- the value registers (%%ecx/%%eax)
++     * are correctly 32-bit since oldvalue/newvalue/xchg are all int32_t. */
++    "   lock; cmpxchg %%ecx, (%%rdx);"
+     "   setne %%al;"
+     "   andl $1, %%eax"
+     : "=a" (xchg)
+diff --git a/libcutils/tztime.c b/libcutils/tztime.c
+index d6448a1dad90fb7912f375ba891db8e026b1bd7f..951d7d2d84e4bbdee8c0c6cc47339e22d152070e 100644
+--- a/libcutils/tztime.c
++++ b/libcutils/tztime.c
+@@ -3,6 +3,21 @@
+ ** 1996-06-05 by Arthur David Olson.
+ */
+ 
++/* bionic's own tzcode (libc_tzcode_localtime.o) already defines a global
++ * `tzname[2]` for plain localtime()/mktime(), and its time.h declares it
++ * `extern` -- which this file's own #include chain below (private.h ->
++ * bionic time.h) pulls in before this file's own tzname[] definition, so
++ * `static` isn't legal here (conflicts with the prior extern). This file is
++ * Android's separate *_tz() fork (explicit-TZ-argument variants, see
++ * mktime_tz()/localtime_tz()) linked alongside it, not instead of it, and
++ * needs its own private tzname storage. Renaming via the preprocessor -- so
++ * every reference in this TU, including the one inside bionic's own
++ * time.h -- points at a symbol that doesn't collide, instead of a real
++ * multiple-definition at link time. Nothing outside this file references
++ * tzname from here (checked: core/jni/Time.cpp only calls mktime_tz()/
++ * localtime_tz(), never tzname itself). */
++#define tzname android3ds_tztime_tzname
++
+ #include <stdio.h>
+ 
+ #ifndef lint
+diff --git a/libpixelflinger/codeflinger/ARMAssembler.cpp b/libpixelflinger/codeflinger/ARMAssembler.cpp
+index ff7b0b3e0d6b91dc9b8b9972a863d4719ed596cc..4ed83b317cc356630ce2adb6e45e654cab69b26b 100644
+--- a/libpixelflinger/codeflinger/ARMAssembler.cpp
++++ b/libpixelflinger/codeflinger/ARMAssembler.cpp
+@@ -172,7 +172,9 @@ int ARMAssembler::generate(const char* name)
+         *bt.pc |= offset & 0xFFFFFF;
+     }
+ 
++    /* N3DS_ARMASSEMBLER_SYNC_BASE: synchronize base pointer after resize */
+     mAssembly->resize( int(pc()-base())*4 );
++    mBase = (uint32_t *)mAssembly->base();
+     
+     // the instruction cache is flushed by CodeCache
+     const int64_t duration = ggl_system_time() - mDuration;
+diff --git a/libpixelflinger/codeflinger/CodeCache.cpp b/libpixelflinger/codeflinger/CodeCache.cpp
+index 29410c8ab62c662f773ffea1ae2af655a0f0ffa4..17086d7bdb6693fe86f5a6406dbae4245f886b0a 100644
+--- a/libpixelflinger/codeflinger/CodeCache.cpp
++++ b/libpixelflinger/codeflinger/CodeCache.cpp
+@@ -32,22 +32,35 @@ namespace android {
+ #if defined(__arm__)
+ #include <unistd.h>
+ #include <errno.h>
++#include <sys/mman.h>
+ #endif
+ 
+ // ----------------------------------------------------------------------------
+ 
++/* N3DS_CODECACHE_MMAP_ALLOC: allocate executable assembly from dedicated
++ * anonymous mmap pages rather than the dlmalloc heap, avoiding heap corruption
++ * when mprotect(PROT_EXEC) is applied. */
+ Assembly::Assembly(size_t size)
+     : mCount(1), mSize(0)
+ {
+-    mBase = (uint32_t*)malloc(size);
+-    if (mBase) {
+-        mSize = size;
++    const long pageSize = sysconf(_SC_PAGESIZE);
++    size_t allocSize = (size + pageSize - 1) & ~(pageSize - 1);
++    void* ptr = mmap(NULL, allocSize, PROT_READ | PROT_WRITE | PROT_EXEC,
++                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++    if (ptr != MAP_FAILED) {
++        mBase = (uint32_t*)ptr;
++        mSize = allocSize;
++    } else {
++        mBase = NULL;
++        mSize = 0;
+     }
+ }
+ 
+ Assembly::~Assembly()
+ {
+-    free(mBase);
++    if (mBase && mSize > 0) {
++        munmap(mBase, mSize);
++    }
+ }
+ 
+ void Assembly::incStrong(const void*) const
+@@ -75,8 +88,11 @@ uint32_t* Assembly::base() const
+ 
+ ssize_t Assembly::resize(size_t newSize)
+ {
+-    mBase = (uint32_t*)realloc(mBase, newSize);
+-    mSize = newSize;
++    /* With dedicated mmap allocation, we preserve the mapped page range and
++     * update the logical size without reallocating/moving. */
++    if (mBase && newSize <= mSize) {
++        return newSize;
++    }
+     return size();
+ }
+ 
+@@ -128,7 +144,42 @@ int CodeCache::cache(  const AssemblyKeyBase& keyBase,
+         mCacheData.removeItemsAt(lru);
+     }
+ 
+-    ssize_t err = mCacheData.add(key_t(keyBase), cache_entry_t(assembly, mWhen));
++    ssize_t err = 0;
++#if defined(__arm__)
++    /*
++     * Assembly storage comes from malloc(), whose heap pages are RW but NX on
++     * the 3DS kernel.  The old Android kernels tolerated executing that heap,
++     * so Eclair's original CodeCache only flushed the I-cache.  Modern ARM
++     * page tables fault on the very first generated instruction instead.
++     *
++     * Keep the allocation writable (the allocator owns the surrounding page)
++     * and add execute permission to every page touched by this assembly before
++     * publishing its function pointer.  ARMAssembler has already resized the
++     * block, so it will not be reallocated after this point.
++    */
++    const long pageSize = sysconf(_SC_PAGESIZE);
++    if (pageSize <= 0) {
++        err = -EINVAL;
++        LOGE("sysconf(_SC_PAGESIZE) failed for generated code");
++    } else {
++        const uintptr_t base = reinterpret_cast<uintptr_t>(assembly->base());
++        const uintptr_t pageMask = static_cast<uintptr_t>(pageSize - 1);
++        const uintptr_t firstPage = base & ~pageMask;
++        const uintptr_t afterAssembly = base + static_cast<uintptr_t>(assemblySize);
++        const uintptr_t afterLastPage = (afterAssembly + pageMask) & ~pageMask;
++        if (mprotect(reinterpret_cast<void*>(firstPage),
++                afterLastPage - firstPage,
++                PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
++            err = -errno;
++            LOGE("mprotect(PROT_EXEC) failed for generated code: %s",
++                    strerror(errno));
++        }
++    }
++#endif
++
++    if (err == 0) {
++        err = mCacheData.add(key_t(keyBase), cache_entry_t(assembly, mWhen));
++    }
+     if (err >= 0) {
+         mCacheInUse += assemblySize;
+         mWhen++;
+diff --git a/libpixelflinger/codeflinger/GGLAssembler.cpp b/libpixelflinger/codeflinger/GGLAssembler.cpp
+index 1cd189c9f7057ffa9b7088771bd1426bcb234149..dbac6129a742ac59ed877c4e98ab5c12efa68153 100644
+--- a/libpixelflinger/codeflinger/GGLAssembler.cpp
++++ b/libpixelflinger/codeflinger/GGLAssembler.cpp
+@@ -1037,7 +1037,7 @@ RegisterAllocator::RegisterFile::RegisterFile()
+ }
+ 
+ RegisterAllocator::RegisterFile::RegisterFile(const RegisterFile& rhs)
+-    : mRegs(rhs.mRegs), mTouched(rhs.mTouched)
++    : mRegs(rhs.mRegs), mTouched(rhs.mTouched), mStatus(rhs.mStatus)
+ {
+ }
+ 
+@@ -1124,6 +1124,11 @@ int RegisterAllocator::RegisterFile::countFreeRegs() const
+ 
+ void RegisterAllocator::RegisterFile::recycle(int reg)
+ {
++    /* N3DS_PIXELFLINGER_OOR_RECYCLE: obtain() returns SP only as an error
++     * sentinel.  Cleanup must not release or reject that permanent reserve;
++     * scanline() owns the lower-optimization retry decision. */
++    if (reg == ARMAssemblerInterface::SP && (mStatus & OUT_OF_REGISTERS))
++        return;
+     LOG_FATAL_IF(!isUsed(reg),
+             "recycling unallocated register %d",
+             reg);
+@@ -1132,6 +1137,8 @@ void RegisterAllocator::RegisterFile::recycle(int reg)
+ 
+ void RegisterAllocator::RegisterFile::recycleSeveral(uint32_t regMask)
+ {
++    if (mStatus & OUT_OF_REGISTERS)
++        regMask &= ~(1U << ARMAssemblerInterface::SP);
+     LOG_FATAL_IF((mRegs & regMask)!=regMask,
+             "recycling unallocated registers "
+             "(recycle=%08x, allocated=%08x, unallocated=%08x)",
+diff --git a/libpixelflinger/codeflinger/GGLAssembler.h b/libpixelflinger/codeflinger/GGLAssembler.h
+index d1d29f0b0e19619bb560eb165393cd6613358cb1..4e270f03e4bdc18ec6bb83e836899d6ed1597531 100644
+--- a/libpixelflinger/codeflinger/GGLAssembler.h
++++ b/libpixelflinger/codeflinger/GGLAssembler.h
+@@ -97,9 +97,16 @@ public:
+             ~Scratch() {
+                 mRegFile.recycleSeveral(mScratch);
+             }
+-        int obtain() { 
++        int obtain() {
+             int reg = mRegFile.obtain();
+-            mScratch |= 1<<reg;
++            /* N3DS_PIXELFLINGER_OOR_SENTINEL: SP is the allocator's
++             * non-executable out-of-register sentinel, not scratch storage.
++             * Keeping it out of mScratch preserves the permanent SP reserve
++             * while scanline() unwinds and retries a lower optimization. */
++            if (reg != ARMAssemblerInterface::SP ||
++                    !(mRegFile.status() & RegisterFile::OUT_OF_REGISTERS)) {
++                mScratch |= 1<<reg;
++            }
+             return reg;
+         }
+         void recycle(int reg) {
+diff --git a/libpixelflinger/scanline.cpp b/libpixelflinger/scanline.cpp
+index f700306806982d8606ecb9f6f7caf79204658d75..227f30cf80e01b2a4a450a8c4b552ab85169ec10 100644
+--- a/libpixelflinger/scanline.cpp
++++ b/libpixelflinger/scanline.cpp
+@@ -41,12 +41,14 @@
+ #define ANDROID_CODEGEN_ASM         2   // hand-written asm, fallback generic
+ #define ANDROID_CODEGEN_GENERATED   3   // hand-written asm, fallback codegen
+ 
++/* N3DS_PIXELFLINGER_ASM_CODEGEN: on ARM11 MPCore SMP, runtime JIT heap
++ * codegen suffers from cross-core I-cache desynchronization and heap mprotect
++ * corruption. Use hand-optimized assembly scanlines with generic C fallback. */
++#define ANDROID_CODEGEN      ANDROID_CODEGEN_ASM
+ #ifdef NDEBUG
+ #   define ANDROID_RELEASE
+-#   define ANDROID_CODEGEN      ANDROID_CODEGEN_GENERATED
+ #else
+ #   define ANDROID_DEBUG
+-#   define ANDROID_CODEGEN      ANDROID_CODEGEN_GENERATED
+ #endif
+ 
+ #if defined(__arm__)
+@@ -242,7 +244,7 @@ static void pick_scanline(context_t* c)
+     c->init_y = init_y;
+     c->step_y = step_y__generic;
+ 
+-#if ANDROID_ARM_CODEGEN
++#if ANDROID_ARM_CODEGEN && (ANDROID_CODEGEN == ANDROID_CODEGEN_GENERATED)
+     // we're going to have to generate some code...
+     // here, generate code for our pixel pipeline
+     const AssemblyKey<needs_t> key(c->state.needs);
+diff --git a/libpixelflinger/tinyutils/TypeHelpers.h b/libpixelflinger/tinyutils/TypeHelpers.h
+index 9500c90444cbc506e1fc76493d3e4eab4a6af496..5663cabe6c4c175b51deb64690095b0249e93636 100644
+--- a/libpixelflinger/tinyutils/TypeHelpers.h
++++ b/libpixelflinger/tinyutils/TypeHelpers.h
+@@ -219,19 +219,15 @@ struct key_value_pair_t {
+     }
+ };
+ 
+-template<>
+ template <typename K, typename V>
+ struct trait_trivial_ctor< key_value_pair_t<K, V> >
+ { enum { value = aggregate_traits<K,V>::has_trivial_ctor }; };
+-template<> 
+ template <typename K, typename V>
+ struct trait_trivial_dtor< key_value_pair_t<K, V> >
+ { enum { value = aggregate_traits<K,V>::has_trivial_dtor }; };
+-template<> 
+ template <typename K, typename V>
+ struct trait_trivial_copy< key_value_pair_t<K, V> >
+ { enum { value = aggregate_traits<K,V>::has_trivial_copy }; };
+-template<> 
+ template <typename K, typename V>
+ struct trait_trivial_assign< key_value_pair_t<K, V> >
+ { enum { value = aggregate_traits<K,V>::has_trivial_assign};};

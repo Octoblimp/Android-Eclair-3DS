@@ -1,0 +1,11 @@
+# Dedicated kernel-translated navigation device
+key 102   HOME
+key 148   B
+key 158   BACK
+key 28    DPAD_CENTER
+key 116   POWER
+key 139   MENU
+key 103   DPAD_UP
+key 108   DPAD_DOWN
+key 105   DPAD_LEFT
+key 106   DPAD_RIGHT

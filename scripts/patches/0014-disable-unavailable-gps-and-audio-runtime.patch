@@ -1,0 +1,68 @@
+diff --git a/services/java/com/android/server/LocationManagerService.java b/services/java/com/android/server/LocationManagerService.java
+--- a/services/java/com/android/server/LocationManagerService.java
++++ b/services/java/com/android/server/LocationManagerService.java
+@@ -63,7 +63,6 @@ import android.util.Log;
+ import android.util.PrintWriterPrinter;
+ 
+-import com.android.internal.location.GpsLocationProvider;
+ import com.android.internal.location.LocationProviderProxy;
+@@ -439,16 +438,9 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
+ 
+     private void _loadProvidersLocked() {
+-        // Attempt to load "real" providers first
+-        if (GpsLocationProvider.isSupported()) {
+-            // Create a gps location provider
+-            GpsLocationProvider provider = new GpsLocationProvider(mContext, this);
+-            mGpsStatusProvider = provider.getGpsStatusProvider();
+-            mNetInitiatedListener = provider.getNetInitiatedListener();
+-            LocationProviderProxy proxy = new LocationProviderProxy(LocationManager.GPS_PROVIDER, provider);
+-            addProvider(proxy);
+-            mGpsLocationProvider = proxy;
+-        }
++        // Nintendo 3DS exposes no GPS hardware.  Merely referencing the
++        // legacy provider runs its static class_init_native(), whose JNI is
++        // intentionally absent, and kills the entire system process.
++        Log.i(TAG, "GPS provider disabled (no hardware)");
+ 
+         updateProvidersLocked();
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -149,18 +149,10 @@ class ServerThread extends Thread {
+             Log.i(TAG, "Sensor Service");
+             ServiceManager.addService(Context.SENSOR_SERVICE, new SensorService(context));
+ 
+-            // No compositor exists yet on this port -- no gralloc HAL,
+-            // libagl/libpixelflinger integration, or FramebufferNativeWindow
+-            // (see docs/HANDOFF.md, "Phase 6 compositor scope" /
+-            // project_phase6_compositor_scope: its own multi-session porting
+-            // phase, not something to build here). WindowManagerService.main()
+-            // is therefore expected to throw, most likely
+-            // UnsatisfiedLinkError from an unregistered android.view.Surface/
+-            // SurfaceSession native -- an Error, not a RuntimeException, so
+-            // it would otherwise escape the "core service" catch below and
+-            // take every service started after Window Manager down with it.
+-            // Scope the catch to just this service so the rest of
+-            // system_server's bring-up (Status Bar, Input Method, etc. below,
+-            // already individually try/catch'd) still gets a chance to run.
++            // SurfaceFlinger/gralloc/PixelFlinger are present on this port.
++            // Retain the local catch so a compositor regression cannot hide
++            // independent later service failures in the hardware log.
+             try {
+                 Log.i(TAG, "Window Manager");
+@@ -300,12 +292,10 @@ class ServerThread extends Thread {
+                 Log.e(TAG, "Failure starting Wallpaper Service", e);
+             }
+ 
+-            try {
+-                Log.i(TAG, "Audio Service");
+-                ServiceManager.addService(Context.AUDIO_SERVICE, new AudioService(context));
+-            } catch (Throwable e) {
+-                Log.e(TAG, "Failure starting Audio Service", e);
+-            }
++            // The kernel DSP driver exists, but the Eclair libmedia/
++            // AudioSystem JNI userspace stack is not built.  Do not construct
++            // a service guaranteed to call absent natives during UI startup.
++            Log.i(TAG, "Audio Service disabled (userspace stack unavailable)");
+ 
+             try {

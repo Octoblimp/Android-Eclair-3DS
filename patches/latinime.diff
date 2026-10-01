@@ -1,0 +1,283 @@
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 697dce28a6c6afe3f7e76f3a20ebaf1a9e90c7a5..10e57996cd27c5159c91f384702190291b415dcc 100755
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -1,6 +1,9 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android" 
+-        package="com.android.inputmethod.latin"
+-        android:sharedUserId="android.uid.shared">
++        package="com.android.inputmethod.latin">
++    <!-- N3DS_LATINIME_OWN_UID: no android.uid.shared; it only existed so the
++         contacts dictionary could read contacts, which this build turns off
++         (N3DS_LATINIME_NO_CONTACTS). -->
++    <uses-sdk android:minSdkVersion="5" />
+     <uses-permission android:name="android.permission.VIBRATE"/>
+     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
+     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY" />
+diff --git a/res/layout/candidate_preview.xml b/res/layout/candidate_preview.xml
+index fe2002d46e3f6939666e59dd61636665bb683114..1bc9891c6e4cafff5cd22ae1719cf4e3b5acfd08 100755
+--- a/res/layout/candidate_preview.xml
++++ b/res/layout/candidate_preview.xml
+@@ -18,10 +18,11 @@
+ */
+ -->
+ 
++<!-- N3DS_LATINIME_240P: 16sp fits the 28 dip strip -->
+ <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+     android:layout_width="wrap_content" 
+     android:layout_height="wrap_content"
+-    android:textSize="18sp"
++    android:textSize="16sp"
+     android:textColor="?android:attr/textColorPrimaryInverse"
+     android:minWidth="32dip"
+     android:gravity="center"
+diff --git a/res/values-land/dimens.xml b/res/values-land/dimens.xml
+index 43951552e52d8f711a355b3e856c6fcdc45bf014..bbef94d8b2fe7ddb4d909e6130bd9889f5d3287c 100644
+--- a/res/values-land/dimens.xml
++++ b/res/values-land/dimens.xml
+@@ -1,25 +1,29 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <!--
+-/* 
++/*
+ **
+ ** Copyright 2008, The Android Open Source Project
+ **
+-** Licensed under the Apache License, Version 2.0 (the "License"); 
+-** you may not use this file except in compliance with the License. 
+-** You may obtain a copy of the License at 
++** Licensed under the Apache License, Version 2.0 (the "License");
++** you may not use this file except in compliance with the License.
++** You may obtain a copy of the License at
+ **
+-**     http://www.apache.org/licenses/LICENSE-2.0 
++**     http://www.apache.org/licenses/LICENSE-2.0
+ **
+-** Unless required by applicable law or agreed to in writing, software 
+-** distributed under the License is distributed on an "AS IS" BASIS, 
+-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+-** See the License for the specific language governing permissions and 
++** Unless required by applicable law or agreed to in writing, software
++** distributed under the License is distributed on an "AS IS" BASIS,
++** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
+ -->
+-
++<!-- N3DS_LATINIME_240P: the bottom screen is 320x240 at 160 dpi (1 dip =
++     1 px) and always landscape.  Stock rows (47-54 dip) plus the 38-42 dip
++     strip filled 226 of its 240 px; 4 x 40 + 28 = 188 px leaves the edited
++     field visible above the keyboard (N3DS_LATINIME_NO_EXTRACT). -->
+ <resources>
+-    <dimen name="key_height">47dip</dimen>
+-    <dimen name="candidate_strip_height">38dip</dimen>
++    <dimen name="key_height">40dip</dimen>
++    <dimen name="bubble_pointer_offset">22dip</dimen>
++    <dimen name="candidate_strip_height">28dip</dimen>
+     <dimen name="spacebar_vertical_correction">2dip</dimen>
+-</resources>
+\ No newline at end of file
++</resources>
+diff --git a/res/values/dimens.xml b/res/values/dimens.xml
+index 5b2095c0e59edbda8113a021c2d189303450fc7f..bbef94d8b2fe7ddb4d909e6130bd9889f5d3287c 100644
+--- a/res/values/dimens.xml
++++ b/res/values/dimens.xml
+@@ -1,26 +1,29 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <!--
+-/* 
++/*
+ **
+ ** Copyright 2008, The Android Open Source Project
+ **
+-** Licensed under the Apache License, Version 2.0 (the "License"); 
+-** you may not use this file except in compliance with the License. 
+-** You may obtain a copy of the License at 
++** Licensed under the Apache License, Version 2.0 (the "License");
++** you may not use this file except in compliance with the License.
++** You may obtain a copy of the License at
+ **
+-**     http://www.apache.org/licenses/LICENSE-2.0 
++**     http://www.apache.org/licenses/LICENSE-2.0
+ **
+-** Unless required by applicable law or agreed to in writing, software 
+-** distributed under the License is distributed on an "AS IS" BASIS, 
+-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+-** See the License for the specific language governing permissions and 
++** Unless required by applicable law or agreed to in writing, software
++** distributed under the License is distributed on an "AS IS" BASIS,
++** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
+ -->
+-
++<!-- N3DS_LATINIME_240P: the bottom screen is 320x240 at 160 dpi (1 dip =
++     1 px) and always landscape.  Stock rows (47-54 dip) plus the 38-42 dip
++     strip filled 226 of its 240 px; 4 x 40 + 28 = 188 px leaves the edited
++     field visible above the keyboard (N3DS_LATINIME_NO_EXTRACT). -->
+ <resources>
+-    <dimen name="key_height">54dip</dimen>
++    <dimen name="key_height">40dip</dimen>
+     <dimen name="bubble_pointer_offset">22dip</dimen>
+-    <dimen name="candidate_strip_height">42dip</dimen>
+-    <dimen name="spacebar_vertical_correction">4dip</dimen>
+-</resources>
+\ No newline at end of file
++    <dimen name="candidate_strip_height">28dip</dimen>
++    <dimen name="spacebar_vertical_correction">2dip</dimen>
++</resources>
+diff --git a/src/com/android/inputmethod/latin/BinaryDictionary.java b/src/com/android/inputmethod/latin/BinaryDictionary.java
+index e7470a8fc94c897589cd0a71aa587595489c1af9..4f35dabb2b96d1de73bd81f5fbab0cacc140a0c9 100644
+--- a/src/com/android/inputmethod/latin/BinaryDictionary.java
++++ b/src/com/android/inputmethod/latin/BinaryDictionary.java
+@@ -40,11 +40,18 @@ public class BinaryDictionary extends Dictionary {
+     private char[] mOutputChars = new char[MAX_WORD_LENGTH * MAX_WORDS];
+     private int[] mFrequencies = new int[MAX_WORDS];
+ 
++    // N3DS_LATINIME_NATIVE_OPTIONAL: false when the natives could not be
++    // bound; every native call below is then skipped and the dictionary is
++    // empty, instead of an UnsatisfiedLinkError killing the IME process.
++    private static boolean sNativeAvailable;
++
+     static {
+         try {
+             System.loadLibrary("jni_latinime");
++            sNativeAvailable = true;
+         } catch (UnsatisfiedLinkError ule) {
+-            Log.e("BinaryDictionary", "Could not load native library jni_latinime");
++            Log.e("BinaryDictionary", "Could not load native library jni_latinime: "
++                    + ule.getMessage() + " (N3DS_LATINIME_NATIVE_OPTIONAL)");
+         }
+     }
+ 
+@@ -70,12 +77,22 @@ public class BinaryDictionary extends Dictionary {
+     private final void loadDictionary(Context context, int resId) {
+         AssetManager am = context.getResources().getAssets();
+         String assetName = context.getResources().getString(resId);
+-        mNativeDict = openNative(am, assetName, TYPED_LETTER_MULTIPLIER, FULL_WORD_FREQ_MULTIPLIER);
++        if (!sNativeAvailable) return;
++        try {
++            mNativeDict = openNative(am, assetName, TYPED_LETTER_MULTIPLIER,
++                    FULL_WORD_FREQ_MULTIPLIER);
++        } catch (UnsatisfiedLinkError ule) {
++            Log.e("BinaryDictionary", "openNative is not bound: " + ule.getMessage()
++                    + " (N3DS_LATINIME_NATIVE_OPTIONAL)");
++            sNativeAvailable = false;
++            mNativeDict = 0;
++        }
+     }
+ 
+     @Override
+     public void getWords(final WordComposer codes, final WordCallback callback) {
+         mWordCallback = callback;
++        if (mNativeDict == 0) return;
+         final int codesSize = codes.size();
+         // Wont deal with really long words.
+         if (codesSize > MAX_WORD_LENGTH - 1) return;
+@@ -122,7 +139,7 @@ public class BinaryDictionary extends Dictionary {
+ 
+     @Override
+     public boolean isValidWord(CharSequence word) {
+-        if (word == null) return false;
++        if (word == null || mNativeDict == 0) return false;
+         char[] chars = word.toString().toLowerCase().toCharArray();
+         return isValidWordNative(mNativeDict, chars, chars.length);
+     }
+diff --git a/src/com/android/inputmethod/latin/KeyboardSwitcher.java b/src/com/android/inputmethod/latin/KeyboardSwitcher.java
+index c82587b719c4c08ead646e4a5d7df69502afdd8a..de896dcd409de11675b7d7a9ad814300aeb6ac10 100644
+--- a/src/com/android/inputmethod/latin/KeyboardSwitcher.java
++++ b/src/com/android/inputmethod/latin/KeyboardSwitcher.java
+@@ -126,7 +126,11 @@ public class KeyboardSwitcher {
+         mMode = mode;
+         mImeOptions = imeOptions;
+         mIsSymbols = isSymbols;
+-        mInputView.setPreviewEnabled(true);
++        // N3DS_LATINIME_NO_KEY_PREVIEW: the key-press preview is a separate
++        // popup window that is shown, moved and dismissed on every key, i.e.
++        // a window-manager relayout and an extra SurfaceFlinger layer per
++        // tap.  The candidate strip already echoes what was typed.
++        mInputView.setPreviewEnabled(false);
+         KeyboardId id = getKeyboardId(mode, imeOptions, isSymbols);
+         LatinKeyboard keyboard = getKeyboard(id);
+ 
+diff --git a/src/com/android/inputmethod/latin/LatinIME.java b/src/com/android/inputmethod/latin/LatinIME.java
+index 8b76dbd3950982e3ca3eb41e36d0ad94d5120205..354903a620a06c895ec476bbc928d795ee15034e 100644
+--- a/src/com/android/inputmethod/latin/LatinIME.java
++++ b/src/com/android/inputmethod/latin/LatinIME.java
+@@ -190,7 +190,13 @@ public class LatinIME extends InputMethodService
+         mSuggest = new Suggest(this, R.raw.main);
+         mSuggest.setCorrectionMode(mCorrectionMode);
+         mUserDictionary = new UserDictionary(this);
+-        mContactsDictionary = new ContactsDictionary(this);
++        // N3DS_LATINIME_NO_CONTACTS: the contacts dictionary queries
++        // ContactsProvider every time the IME process starts, which spins up
++        // the whole android.process.acore Dalvik process on this 128 MB
++        // console just to learn a few names -- and the N3DS dialer keeps its
++        // contacts in its own database, not there.  Suggest treats a null
++        // contacts dictionary as absent.
++        mContactsDictionary = null;
+         mAutoDictionary = new AutoDictionary(this);
+         mSuggest.setUserDictionary(mUserDictionary);
+         mSuggest.setContactsDictionary(mContactsDictionary);
+@@ -201,7 +207,7 @@ public class LatinIME extends InputMethodService
+     
+     @Override public void onDestroy() {
+         mUserDictionary.close();
+-        mContactsDictionary.close();
++        if (mContactsDictionary != null) mContactsDictionary.close();
+         unregisterReceiver(mReceiver);
+         super.onDestroy();
+     }
+@@ -223,6 +229,20 @@ public class LatinIME extends InputMethodService
+         super.onConfigurationChanged(conf);
+     }
+ 
++    /**
++     * N3DS_LATINIME_NO_EXTRACT: the 320x240 screen always reports landscape,
++     * where InputMethodService would switch to a full-screen extract editor
++     * and mirror every keystroke into it over IPC.  Keep the app's own field
++     * visible above the keyboard instead, as the old N3DS keyboard did; the
++     * keyboard is sized (dimens.xml in values and values-land,
++     * N3DS_LATINIME_240P) to
++     * leave room for it.
++     */
++    @Override
++    public boolean onEvaluateFullscreenMode() {
++        return false;
++    }
++
+     @Override
+     public View onCreateInputView() {
+         mInputView = (LatinKeyboardView) getLayoutInflater().inflate(
+diff --git a/src/com/android/inputmethod/latin/UserDictionary.java b/src/com/android/inputmethod/latin/UserDictionary.java
+index 2f3447abdcf76f3a91c82b5128a40874bf7a15fd..1a6e58b6157f8751199137dc880e1572f9a3aadc 100644
+--- a/src/com/android/inputmethod/latin/UserDictionary.java
++++ b/src/com/android/inputmethod/latin/UserDictionary.java
+@@ -88,7 +88,14 @@ public class UserDictionary extends ExpandableDictionary {
+ 
+         super.addWord(word, frequency);
+ 
+-        Words.addWord(getContext(), word, frequency, Words.LOCALE_TYPE_CURRENT);
++        // N3DS_LATINIME_NO_USERDICT_PROVIDER: there is no UserDictionary
++        // provider on this build, so the insert throws "Unknown URL".  The
++        // word stays in this in-memory dictionary for the session.
++        try {
++            Words.addWord(getContext(), word, frequency, Words.LOCALE_TYPE_CURRENT);
++        } catch (RuntimeException e) {
++            // No provider: nothing to persist to.
++        }
+         // In case the above does a synchronous callback of the change observer
+         mRequiresReload = false;
+     }
+@@ -107,6 +114,9 @@ public class UserDictionary extends ExpandableDictionary {
+ 
+     private void addWords(Cursor cursor) {
+         clearDictionary();
++        // N3DS_LATINIME_NO_USERDICT_PROVIDER: query() returns null when the
++        // provider is not installed.
++        if (cursor == null) return;
+ 
+         final int maxWordLength = getMaxWordLength();
+         if (cursor.moveToFirst()) {

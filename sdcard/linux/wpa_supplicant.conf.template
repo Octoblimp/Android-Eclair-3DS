@@ -1,0 +1,11 @@
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+
+network={
+	ssid="YOUR_WIFI_NAME_HERE"
+	psk="YOUR_WIFI_PASSWORD_HERE"
+}
+
+# For an open (no password) network instead, delete the psk line above and
+# add this in its place:
+#   key_mgmt=NONE

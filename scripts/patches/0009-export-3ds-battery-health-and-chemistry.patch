@@ -1,0 +1,29 @@
+diff --git a/drivers/platform/nintendo3ds/mcu/charger.c b/drivers/platform/nintendo3ds/mcu/charger.c
+--- a/drivers/platform/nintendo3ds/mcu/charger.c
++++ b/drivers/platform/nintendo3ds/mcu/charger.c
+@@ -53,7 +53,15 @@ static int battery_getprop(struct power_supply *psy,
+ 	case POWER_SUPPLY_PROP_PRESENT:
+ 	case POWER_SUPPLY_PROP_ONLINE:
+ 		/* assume there's always a battery present */
+ 		val->intval = 1;
+ 		break;
+ 
++	case POWER_SUPPLY_PROP_HEALTH:
++		val->intval = POWER_SUPPLY_HEALTH_GOOD;
++		break;
++
++	case POWER_SUPPLY_PROP_TECHNOLOGY:
++		val->strval = "Li-ion";
++		break;
++
+ 	case POWER_SUPPLY_PROP_STATUS:
+@@ -114,7 +122,9 @@ static enum power_supply_property bat_props[] = {
+ 	POWER_SUPPLY_PROP_PRESENT,
+ 	POWER_SUPPLY_PROP_ONLINE,
+ 	POWER_SUPPLY_PROP_STATUS,
++	POWER_SUPPLY_PROP_HEALTH,
+ 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+ 	POWER_SUPPLY_PROP_CAPACITY,
+ 	POWER_SUPPLY_PROP_TEMP,
++	POWER_SUPPLY_PROP_TECHNOLOGY,
+ }, ac_props[] = {

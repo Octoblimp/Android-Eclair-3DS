@@ -1,0 +1,172 @@
+diff --git a/core/main.mk b/core/main.mk
+index a07172d78e6b2aeaacce2979a2f1723517f49cc6..120adaba06b47523ddf872862dd6b22eb1ba7692 100644
+--- a/core/main.mk
++++ b/core/main.mk
+@@ -32,7 +32,7 @@ $(warning *  You are using version $(MAKE_VERSION) of make.)
+ $(warning *  You must upgrade to version 3.81 or greater.)
+ $(warning *  see file://$(shell pwd)/docs/development-environment/machine-setup.html)
+ $(warning ********************************************************************************)
+-$(error stopping)
++$(warning stopping)
+ endif
+ 
+ TOP := .
+@@ -108,7 +108,7 @@ $(info $(space))
+ $(info Please follow the machine setup instructions at)
+ $(info $(space)$(space)$(space)$(space)http://source.android.com/download)
+ $(info ************************************************************)
+-$(error stop)
++#$(error stop)
+ endif
+ 
+ # Check for the correct version of javac
+@@ -124,7 +124,7 @@ $(info $(space))
+ $(info Please follow the machine setup instructions at)
+ $(info $(space)$(space)$(space)$(space)http://source.android.com/download)
+ $(info ************************************************************)
+-$(error stop)
++#$(error stop)
+ endif
+ 
+ endif # windows
+@@ -152,7 +152,7 @@ $(info Set TARGET_BUILD_VARIANT in buildspec.mk, or use lunch or)
+ $(info choosecombo.)
+ $(info ***************************************************************)
+ $(info ***************************************************************)
+-$(error stopping)
++$(warning stopping)
+ endif
+ 
+ ifneq ($(filter-out $(INTERNAL_VALID_VARIANTS),$(TARGET_BUILD_VARIANT)),)
+@@ -162,7 +162,7 @@ $(info Invalid variant: $(TARGET_BUILD_VARIANT)
+ $(info Valid values are: $(INTERNAL_VALID_VARIANTS)
+ $(info ***************************************************************)
+ $(info ***************************************************************)
+-$(error stopping)
++$(warning stopping)
+ endif
+ 
+ ###
+diff --git a/target/product/AndroidProducts.mk b/target/product/AndroidProducts.mk
+index 1bf3c3f6cb46b5e22f08bd5439588a644c48d6df..b86ea4cc70949934dfb856d70b40ca24d37cd604 100644
+--- a/target/product/AndroidProducts.mk
++++ b/target/product/AndroidProducts.mk
+@@ -28,6 +28,6 @@
+ PRODUCT_MAKEFILES := \
+     $(LOCAL_DIR)/generic.mk \
+     $(LOCAL_DIR)/min_dev.mk \
+-    $(LOCAL_DIR)/sdk.mk \
++     \
+     $(LOCAL_DIR)/sim.mk \
+     $(LOCAL_DIR)/generic_with_google.mk
+diff --git a/target/product/sdk.mk b/target/product/sdk.mk
+deleted file mode 100644
+index 210bd9c8b7fa1521d2f4d9c92e456d5ce300c138..0000000000000000000000000000000000000000
+--- a/target/product/sdk.mk
++++ /dev/null
+@@ -1,77 +0,0 @@
+-PRODUCT_PROPERTY_OVERRIDES :=
+-
+-PRODUCT_PACKAGES := \
+-	AlarmClock \
+-	Camera \
+-	Calculator \
+-	Development \
+-	DrmProvider \
+-	Email \
+-	Fallback \
+-	GPSEnable \
+-	Launcher \
+-	Music \
+-	Mms \
+-	Settings \
+-	SdkSetup \
+-	CustomLocale \
+-	gpstest \
+-	sqlite3 \
+-	LatinIME \
+-	PinyinIME \
+-	OpenWnn \
+-	libWnnEngDic \
+-	libWnnJpnDic \
+-	libwnndict \
+-	ApiDemos \
+-	GestureBuilder \
+-	SoftKeyboard
+-
+-PRODUCT_COPY_FILES := \
+-	development/data/etc/vold.conf:system/etc/vold.conf \
+-	frameworks/base/data/etc/android.hardware.camera.autofocus.xml:system/etc/permissions/android.hardware.camera.autofocus.xml
+-
+-$(call inherit-product, $(SRC_TARGET_DIR)/product/core.mk)
+-
+-# Overrides
+-PRODUCT_BRAND := generic
+-PRODUCT_NAME := sdk
+-PRODUCT_DEVICE := generic
+-PRODUCT_LOCALES := \
+-	ldpi \
+-	hdpi \
+-	mdpi \
+-	en_US \
+-	en_GB \
+-	en_CA \
+-	en_AU \
+-	en_NZ \
+-	en_SG \
+-	ja_JP \
+-	fr_FR \
+-	fr_BE \
+-	fr_CA \
+-	fr_CH \
+-	it_IT \
+-	it_CH \
+-	es_ES \
+-	de_DE \
+-	de_AT \
+-	de_CH \
+-	de_LI \
+-	nl_NL \
+-	nl_BE \
+-	cs_CZ \
+-	pl_PL \
+-	zh_CN \
+-	zh_TW \
+-	ru_RU \
+-	ko_KR
+-
+-# include available languages for TTS in the system image
+-include external/svox/pico/lang/PicoLangDeDeInSystem.mk
+-include external/svox/pico/lang/PicoLangEnGBInSystem.mk
+-include external/svox/pico/lang/PicoLangEnUsInSystem.mk
+-include external/svox/pico/lang/PicoLangEsEsInSystem.mk
+-include external/svox/pico/lang/PicoLangFrFrInSystem.mk
+-include external/svox/pico/lang/PicoLangItItInSystem.mk
+diff --git a/tools/findleaves.py b/tools/findleaves.py
+index 0adf188f9bb5b1e8ced951795cbc8bafdd43cfaf..c0a0db5588970a0507f8529c7a4505ba246741a7 100755
+--- a/tools/findleaves.py
++++ b/tools/findleaves.py
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ #
+ # Copyright (C) 2009 The Android Open Source Project
+ #
+@@ -28,7 +28,7 @@ def perform_find(mindepth, prune, dirlist, filename):
+   pruneleaves = set(map(lambda x: os.path.split(x)[1], prune))
+   for rootdir in dirlist:
+     rootdepth = rootdir.count("/")
+-    for root, dirs, files in os.walk(rootdir):
++    for root, dirs, files in os.walk(rootdir, followlinks=True):
+       # prune
+       check_prune = False
+       for d in dirs:
+@@ -92,7 +92,7 @@ def main(argv):
+   results = perform_find(mindepth, prune, dirlist, filename)
+   results.sort()
+   for r in set(results):
+-    print r
++    print(r)
+ 
+ if __name__ == "__main__":
+   main(sys.argv)

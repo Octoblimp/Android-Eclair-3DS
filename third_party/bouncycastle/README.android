@@ -1,0 +1,51 @@
+Bouncy Castle on the Android platform.
+---
+
+The code in this directory is based on $BOUNCYCASTLE_VERSION in the
+file bouncycastle.version. See patches/README for more information on
+how the code differs from $BOUNCYCASTLE_VERSION.
+
+Porting New Versions of Bouncy Castle.
+--
+
+The following steps are recommended for porting new Bouncy Castle versions.
+
+1) Retrieve the appropriate version of the Bouncy Castle source from
+   www.bouncycastle.org/latest_releases.html (in bcprov-jdk*-*.tar.gz
+   file). Check the checksum (found at bouncycastle.org/checksums.html) with:
+
+     md5sum bcprov-jdk*-*.tar.gz
+     sha1sum bcprov-jdk*-*.tar.gz
+
+2) Update the variables in bouncycastle.config and bouncycastle.version as appropriate.
+   At the very least you will need to update the bouncycastle.version.
+
+3) Run:
+
+     ./import_bouncycastle.sh import bcprov-jdk*-*.tar.gz
+
+4) If there are any errors, then modify bouncycastle.config, bouncycastle.version
+   and patches in patches/ as appropriate.  You might want to use:
+
+     ./import_bouncycastle.sh regenerate patches/*.patch
+
+   Repeat step 3.
+
+5) Cleanup before building with:
+
+     m -j16 clean-bouncycastle
+
+6) Build the bouncycastle target from the external/bouncycastle directory with:
+
+     mm -j16 snod && adb sync system
+
+   If there are build errors, then patches/*.mk or bouncycastle.config
+   may need updating.
+
+7) Run tests to make sure things are working:
+
+     See external/openssl/README.android for test instructions
+
+8) Do a full build before checking in:
+
+     m -j16

@@ -1,0 +1,25 @@
+Android3DS
+Copyright 2026 Octoblimp
+
+Android3DS's own files (scripts/, native/, hal/, content/, tools/, docs/ and
+the top-level files) are licensed under the Apache License, Version 2.0; see
+LICENSE. A file that states a different license keeps it. Kernel code,
+including kernel code that a script in scripts/ writes into the kernel tree,
+is GPL-2.0, as the Linux kernel is.
+
+Third-party code keeps its upstream license:
+
+  third_party/        each tree's own LICENSE, NOTICE or COPYING files
+  patches/linux.diff, patches/linux.config
+                      the Linux kernel (linux-3ds), GPL-2.0
+  patches/buildroot.diff
+                      Buildroot, GPL-2.0
+  patches/arm9linuxfw.diff, patches/firm_linux_loader.diff
+                      the linux-3ds projects' licenses
+  patches/ (the rest) the Android Open Source Project, Apache-2.0
+
+This repository contains no Nintendo firmware. The firmware a build needs is
+dumped by each builder from their own console; see "Firmware" in README.md.
+
+Android is a trademark of Google LLC. Nintendo 3DS is a trademark of
+Nintendo. This project is not affiliated with or endorsed by either.

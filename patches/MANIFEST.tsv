@@ -1,0 +1,17 @@
+path	url	base	branch	patch	text_files	binary_files_omitted
+third_party/arm9linuxfw	https://github.com/linux-3ds/arm9linuxfw.git	206978444c04c65d1fc9e5a841196f7bd1623926	master	arm9linuxfw.diff	6	0
+third_party/bionic	https://android.googlesource.com/platform/bionic	5f53a18204ec991f5a77872806eeaa185936aa8c	eclair-release	bionic.diff	2	0
+third_party/build_system	https://android.googlesource.com/platform/build	72ed0ff7de8005c32fe593401c0f62f6369d6d30	-	build_system.diff	4	0
+third_party/buildroot	https://github.com/linux-3ds/buildroot.git	7332881f8214c27e2d9e3896fdf92f92e65f74f5	master	buildroot.diff	37	167
+third_party/dalvik	https://android.googlesource.com/platform/dalvik	3238cc2a901ed6e0e3bb11fa601913c2ed09ddb7	-	dalvik.diff	18	0
+third_party/firm_linux_loader	https://github.com/linux-3ds/firm_linux_loader.git	ecb0f0d5a8d8aaafaf5edca279098b52ecfa71a0	master	firm_linux_loader.diff	6	0
+third_party/frameworks/base	https://android.googlesource.com/platform/frameworks/base	92d82787e911d24b8b0ee24bb87c2922a595d9c4	-	frameworks_base.diff	132	0
+third_party/latinime	https://android.googlesource.com/platform/packages/inputmethods/LatinIME	8850bdc7e4c1da7049231bc1e21f17213562f9b6	-	latinime.diff	8	1
+third_party/launcher2	https://android.googlesource.com/platform/packages/apps/Launcher2	34b02499432896b60cdb9f78c9d1019c80ef6ef5	-	launcher2.diff	9	0
+third_party/libxml2	https://android.googlesource.com/platform/external/libxml2	60a4c356ee9ce5e9ccb23347c0381f0436192691	aml_ads_341826060	-	0	0
+third_party/linux	https://github.com/linux-3ds/linux.git	7071ec29fd3ebd55d00a70cb6482e98d4702c5f2	master	linux.diff	185	1
+third_party/prebuilt	https://android.googlesource.com/platform/prebuilt	cdf1c2ee1671c78614df7bb8e17cc48dd01e5e46	eclair-release	-	0	0
+third_party/safe-iop	https://android.googlesource.com/platform/external/safe-iop	bd55e7247ae4c6b3ac5d5de3d8ae9669565cd010	-	-	0	0
+third_party/settings	https://android.googlesource.com/platform/packages/apps/Settings	ad76f17a1c75447047fc2791b65e93341925998b	eclair-release	settings.diff	16	0
+third_party/system_core	https://android.googlesource.com/platform/system/core	dc9cf66c6e470f0ebcd77006e3f549c338ab4fab	eclair-release	system_core.diff	16	0
+third_party/zlib	https://android.googlesource.com/platform/external/zlib	890bf930c34d855a6fbb4d09463c1541e90381d0	-	-	0	0

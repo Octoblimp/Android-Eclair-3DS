@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal Browser manifest for the n3ds image, whose framework deliberately
+     omits the unported native WebKit engine. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.android.browser">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <application android:label="@string/application_name"
+                 android:icon="@drawable/ic_launcher_browser"
+                 android:theme="@android:style/Theme.Black.NoTitleBar">
+        <activity android:name=".BrowserActivity"
+                  android:label="@string/application_name"
+                  android:launchMode="singleTask"
+                  android:configChanges="orientation|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.BROWSABLE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,5 @@
+# N3DS update-safe per-user preference template.
+# This sample contains no user data or credentials.
+schema=1
+user_id=0
+# Add non-secret, user-specific options below on the device.

@@ -1,0 +1,22 @@
+diff --git a/board/nintendo3ds/rootfs_overlay/etc/logcat.sh b/board/nintendo3ds/rootfs_overlay/etc/logcat.sh
+--- a/board/nintendo3ds/rootfs_overlay/etc/logcat.sh
++++ b/board/nintendo3ds/rootfs_overlay/etc/logcat.sh
+@@ -14,6 +14,13 @@
+ #   -v time   timestamps (the default "brief" format has none, and every
+ #             question we ask of this log is "what happened just before X")
+ #   -f/-r/-n  4 x 256 KB rotating files: logcat.txt, .1, .2, .3
++#   *:I       persist INFO and above. The native stack deliberately keeps
++#             NDEBUG off for bring-up visibility, which means Dalvik emits
++#             thousands of V/JNI registration and class-link messages even
++#             without -verbose:jni/class. Persisting those messages saturated
++#             the already-slow FAT/virtio path and delayed the UI for minutes.
++#             W/E/F diagnostics and normal I-level boot milestones remain;
++#             temporarily remove this filter only for a targeted debug boot.
+ #
+ # Not oneshot, no exec-into-a-pipeline: logcat runs for the life of the boot
+ # and init restarts it if it dies.
+@@ -49,3 +56,3 @@ echo "logcat: writing $LOGDIR/logcat.txt (4 x 256K rotating)" \
+ 	> /dev/kmsg 2>/dev/null
+ 
+-exec "$BIN" -v time -f "$LOGDIR/logcat.txt" -r 256 -n 3
++exec "$BIN" -v time -f "$LOGDIR/logcat.txt" -r 256 -n 3 "*:I"

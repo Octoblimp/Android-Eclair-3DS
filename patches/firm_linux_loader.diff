@@ -1,0 +1,343 @@
+diff --git a/arm11/source/smp.c b/arm11/source/smp.c
+index f2d9ab2d802cab447658d75a90cc27d21c7147f7..f388fb095c7219588d395a97557eb005e4d0b097 100644
+--- a/arm11/source/smp.c
++++ b/arm11/source/smp.c
+@@ -100,7 +100,20 @@ static void online_cores23(void)
+ 	scu_set_cpu_stat(scu_get_cpu_stat() & 0x0F);
+ 	downclock();
+ 	setup_overlays();
+-	// upclock();
++	/*
++	 * setup_overlays() pokes PDN_LGR_CPU_CNT to physically power on
++	 * cores 2/3, which the loader apparently only trusts at the
++	 * downclocked SOCMODE (hence downclock() just above). Once that
++	 * power sequencing is latched, restore the full Clock+L2 SOCMODE
++	 * set_socmode() already established -- this call was previously
++	 * commented out, which left the *entire* system (all four cores,
++	 * not just 2/3) permanently downclocked for all of Linux's runtime
++	 * on every New3DS boot. That is consistent with New3DS mode being
++	 * slower/crashier than Old3DS mode despite nominally running at a
++	 * higher clock with L2 enabled: it never actually got there.
++	 */
++	/* N3DS_FULL_CLOCK_RESTORED */
++	upclock();
+ 	gic_send_swi(2, 2);
+ 	gic_send_swi(3, 3);
+ }
+diff --git a/arm11/source/start.S b/arm11/source/start.S
+index fae977c3bc148ea6c1f18b051ae82146e96a4826..86549878fcbbf2fb8afb92beef6e2eeee487a409 100644
+--- a/arm11/source/start.S
++++ b/arm11/source/start.S
+@@ -149,6 +149,15 @@ smp_start:
+ 	@ Get the CPUID
+ 	mrc p15, 0, r0, c0, c0, 5
+ 	ands r0, r0, #3
++	/* N3DS_CPU1_SGI_EOI: CPU1 alone enters through the boot-ROM SGI stub.
++	 * Cores 2/3 explicitly EOI their wake SGI in core23_entry(); mirror that
++	 * for CPU1 so its GIC running priority does not mask every later Linux IPI. */
++	cmp r0, #1
++	ldreq r2, =0x17E00110
++	moveq r3, #1
++	streq r3, [r2]
++	/* N3DS_CPU1_SGI_EOI_DSB */
++	mcreq p15, 0, r3, c7, c10, 4
+ 	@ Fall through into smp_boot
+ 
+ .global smp_boot
+diff --git a/arm9/include/fdt.h b/arm9/include/fdt.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..20aefbad4a103933cfa8b81def396d185b45c5d6
+--- /dev/null
++++ b/arm9/include/fdt.h
+@@ -0,0 +1,10 @@
++#pragma once
++
++#include "common.h"
++
++/* Overwrite /chosen/linux,initrd-start and linux,initrd-end in an already
++   loaded flattened devicetree. Returns true only if both were found and
++   written. Both properties must already exist and be one cell wide -- this
++   patches values in place and never changes the size or layout of the blob,
++   so no relocation or header fixup is involved. */
++bool fdt_patch_initrd(void *dtb, u32 start, u32 end);
+diff --git a/arm9/source/fdt.c b/arm9/source/fdt.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..2ae0be2d1da37d37ef878b649f9cefef1e63c4b9
+--- /dev/null
++++ b/arm9/source/fdt.c
+@@ -0,0 +1,113 @@
++/* Minimal flattened-devicetree patcher.
++ *
++ * The initrd region is described to the kernel by /chosen/linux,initrd-start
++ * and linux,initrd-end in the DTB. Those used to be static, so they had to be
++ * kept in sync by hand with both the size of initramfs.cpio.gz and the address
++ * the loader writes it to -- and they were not. That is how the 8 MiB window
++ * at 0x27800000 stayed unnoticed until an 11.2 MiB initramfs ran the ARM9 off
++ * the end of its MPU region mid-read. The loader is the only thing that knows
++ * the real size, so it writes it in.
++ *
++ * Only the two u32 values are overwritten in place; no structural edit is
++ * made, so no relocation or size accounting is needed.
++ *
++ * Everything in an FDT is big-endian, hence getbe32() / fdt_put32().
++ *
++ * This lives in its own file so it can be compiled and exercised on the host
++ * against real .dtb blobs -- see scripts/test_fdt_patch.sh.
++ */
++
++#include "fdt.h"
++
++#define FDT_MAGIC      (0xD00DFEED)
++
++/* Struct-block tokens */
++#define FDT_BEGIN_NODE (1)
++#define FDT_END_NODE   (2)
++#define FDT_PROP       (3)
++#define FDT_NOP        (4)
++#define FDT_END        (9)
++
++/* Header field offsets */
++#define FDT_OFF_DT_STRUCT  (8)
++#define FDT_OFF_DT_STRINGS (12)
++#define FDT_SIZE_DT_STRUCT (36)
++
++static void fdt_put32(void *p, u32 v)
++{
++	u8 *d = p;
++
++	d[0] = v >> 24;
++	d[1] = v >> 16;
++	d[2] = v >> 8;
++	d[3] = v;
++}
++
++bool fdt_patch_initrd(void *dtb, u32 start, u32 end)
++{
++	u8 *base = dtb;
++	u8 *p, *limit;
++	const char *strings;
++	int depth = 0;
++	bool in_chosen = false;
++	int patched = 0;
++
++	if (getbe32(base) != FDT_MAGIC)
++		return false;
++
++	p       = base + getbe32(base + FDT_OFF_DT_STRUCT);
++	limit   = p + getbe32(base + FDT_SIZE_DT_STRUCT);
++	strings = (const char *)(base + getbe32(base + FDT_OFF_DT_STRINGS));
++
++	while (p < limit) {
++		u32 tok = getbe32(p);
++		p += 4;
++
++		switch (tok) {
++		case FDT_BEGIN_NODE: {
++			const char *name = (const char *)p;
++			size_t nlen = strlen(name) + 1;
++
++			depth++;
++			/* /chosen sits directly under the unnamed root node */
++			if (depth == 2 && strcmp(name, "chosen") == 0)
++				in_chosen = true;
++			p += align(nlen, 4);
++			break;
++		}
++		case FDT_END_NODE:
++			if (depth == 2)
++				in_chosen = false;
++			depth--;
++			break;
++		case FDT_PROP: {
++			u32 len  = getbe32(p);
++			u32 noff = getbe32(p + 4);
++			u8 *val  = p + 8;
++
++			if (in_chosen && len == 4) {
++				const char *name = strings + noff;
++
++				if (strcmp(name, "linux,initrd-start") == 0) {
++					fdt_put32(val, start);
++					patched++;
++				} else if (strcmp(name, "linux,initrd-end") == 0) {
++					fdt_put32(val, end);
++					patched++;
++				}
++			}
++			p += 8 + align(len, 4);
++			break;
++		}
++		case FDT_NOP:
++			break;
++		case FDT_END:
++			p = limit;
++			break;
++		default:
++			return false;	/* corrupt struct block */
++		}
++	}
++
++	return patched == 2;
++}
+diff --git a/arm9/source/main.c b/arm9/source/main.c
+index d507e757b82b77973a2bf60ddbe258f4168cc911..a53c753a6d5c9e7a4a28f8d4a9a441b64c893fc5 100644
+--- a/arm9/source/main.c
++++ b/arm9/source/main.c
+@@ -3,6 +3,7 @@
+ #include "cfg11.h"
+ #include "common.h"
+ #include "draw.h"
++#include "fdt.h"
+ #include "fs.h"
+ #include "hid.h"
+ #include "i2c.h"
+@@ -31,7 +32,13 @@ static void wait_any_key_poweroff()
+ 	mcu_poweroff();
+ }
+ 
+-static int load_file(const char *filename, uint32_t addr)
++/* Returns the number of bytes loaded, or 0 on failure. max_size == 0 means
++   "unbounded"; otherwise the file is rejected before a single byte is read,
++   because there is nothing between the destination and whatever follows it --
++   the SD read loop will happily run off the end of the ARM9's MPU window and
++   data-abort (that is what an 11.2 MiB initramfs did against the old 8 MiB
++   window at 0x27800000). */
++static size_t load_file(const char *filename, uint32_t addr, size_t max_size)
+ {
+ 	size_t size;
+ 
+@@ -42,6 +49,14 @@ static int load_file(const char *filename, uint32_t addr)
+ 		return 0;
+ 	}
+ 
++	size = FileGetSize();
++	if (max_size && size > max_size) {
++		DebugColor(COLOR_RED, "%s does not fit!", filename);
++		DebugColor(COLOR_RED, "    size: %d B, max: %d B", size, max_size);
++		FileClose();
++		return 0;
++	}
++
+ 	size = FileRead((void *)addr, ~0UL, 0);
+ 
+ 	Debug("File %s loaded:", filename);
+@@ -49,15 +64,28 @@ static int load_file(const char *filename, uint32_t addr)
+ 
+ 	FileClose();
+ 
+-	return 1;
++	return size;
+ }
+ 
+ int main(int argc, char *argv[])
+ {
+ 	const char *dtb_filename;
++	size_t initramfs_size = 0;
+ 
+ 	InitScreenFbs(argc, argv);
+ 	ClearScreenFull(true, true);
++
++	/* ClearScreenFull() only clears the *current* OS-reported framebuffer
++	   pointers. Linux later hardcodes fixed physical VRAM offsets
++	   (mach-ctr/include/mach/platform.h: NINTENDO3DS_FB_TOP_LEFT1 ==
++	   VRAM_BASE, NINTENDO3DS_FB_BOT_1/2, etc) that may not be the same
++	   buffer the OS reported as current at handoff -- whichever buffer
++	   Linux ends up scanning out from was never actually zeroed, and
++	   shows up as raw leftover VRAM (static/noise) until Linux paints
++	   over it. Blank the whole VRAM region unconditionally so every
++	   buffer Linux could possibly use starts out black. */
++	memset((void *)VRAM_BASE, 0, VRAM_SIZE);
++
+ 	DebugClear();
+ 
+ 	Debug("-- FIRM Linux loader by xerpi --");
+@@ -69,13 +97,16 @@ int main(int argc, char *argv[])
+ 		wait_any_key_poweroff();
+ 	}
+ 
+-	if (!load_file(LINUXIMAGE_FILENAME, ZIMAGE_ADDR)) {
++	if (!load_file(LINUXIMAGE_FILENAME, ZIMAGE_ADDR,
++		       INITRAMFS_ADDR - ZIMAGE_ADDR)) {
+ 		Debug("Failed to load " LINUXIMAGE_FILENAME);
+ 		goto error;
+ 	}
+ 
+ 	if (FileExists(INITRAMFS_FILENAME)) {
+-		if (!load_file(INITRAMFS_FILENAME, INITRAMFS_ADDR)) {
++		initramfs_size = load_file(INITRAMFS_FILENAME, INITRAMFS_ADDR,
++					   INITRAMFS_MAX_SIZE);
++		if (!initramfs_size) {
+ 			Debug("Failed to load " INITRAMFS_FILENAME);
+ 			goto error;
+ 		}
+@@ -85,12 +116,31 @@ int main(int argc, char *argv[])
+ 	}
+ 
+ 	dtb_filename = is_lgr() ? KTR_DTB_FILENAME : CTR_DTB_FILENAME;
+-	if (!load_file(dtb_filename, DTB_ADDR)) {
++	if (!load_file(dtb_filename, DTB_ADDR, 0)) {
+ 		Debug("Failed to load %s", dtb_filename);
+ 		goto error;
+ 	}
+ 
+-	if (!load_file(ARM9LINUXFW_FILENAME, ARM9LINUXFW_ADDR)) {
++	/* Tell the kernel where the initramfs actually ended up. Doing this
++	   here rather than in the DTS is what keeps the two from drifting
++	   apart as the image grows. */
++	if (initramfs_size) {
++		if (fdt_patch_initrd((void *)DTB_ADDR, INITRAMFS_ADDR,
++				     INITRAMFS_ADDR + initramfs_size)) {
++			Debug("initrd: %08X - %08X", INITRAMFS_ADDR,
++			      INITRAMFS_ADDR + initramfs_size);
++		} else {
++			/* Not fatal: the DTS still carries a default window,
++			   but it is a fixed size and this image may outgrow
++			   it, so say so loudly. */
++			DebugColor(COLOR_RED, "Could not patch initrd range "
++				   "into the DTB!");
++			DebugColor(COLOR_RED, "    falling back to the DTS "
++				   "default");
++		}
++	}
++
++	if (!load_file(ARM9LINUXFW_FILENAME, ARM9LINUXFW_ADDR, 0)) {
+ 		Debug("Failed to load arm9linuxfw");
+ 		goto error;
+ 	}
+diff --git a/common/linux_config.h b/common/linux_config.h
+index f5f08c019efec36a8e4fb6cb811f5f6923997f15..eafc61434227b9f23aef8f99327859752453c81d 100644
+--- a/common/linux_config.h
++++ b/common/linux_config.h
+@@ -1,7 +1,31 @@
+ /* Linux settings */
+ #define DTB_ADDR         (0x20000000)
+ #define ZIMAGE_ADDR      (0x20008000)
+-#define INITRAMFS_ADDR   (0x27800000)
++/*
++ * The initramfs used to sit at 0x27800000, i.e. the last 8 MiB of the ARM9's
++ * FCRAM window, which is also what the DTS advertised as the initrd region.
++ * That silently became a hard limit: the ARM9's MPU (arm9/source/start.S,
++ * region 5 = 0x20000035) maps FCRAM as 0x20000000 + 128 MiB, so the first
++ * byte written at 0x28000000 is a background-region access and data-aborts
++ * mid-way through the SD read. An 11.2 MiB initramfs did exactly that.
++ *
++ * Load it low instead. Everything below is fixed and known:
++ *
++ *   0x20000000  DTB                     (~8.5 KiB)
++ *   0x20008000  zImage                  (~4.4 MiB compressed, ~12.6 MiB after
++ *                                        self-decompression, plus bss)
++ *   0x21000000  loader scratch buffer   (BUFFER_ADDRESS, 1 MiB)
++ *   0x22000000  initramfs               <- here, 80 MiB of headroom
++ *   0x27000000  ARM9 loader stack top   (start.S: mov sp, #0x27000000)
++ *   0x28000000  end of the ARM9 MPU window
++ *
++ * The ceiling is the loader's own descending stack, not the MPU wall, so the
++ * usable window is 0x22000000..0x27000000. main.c refuses to load anything
++ * bigger rather than corrupting itself.
++ */
++#define INITRAMFS_ADDR     (0x22000000)
++#define ARM9_STACK_BOTTOM  (0x27000000)
++#define INITRAMFS_MAX_SIZE (ARM9_STACK_BOTTOM - INITRAMFS_ADDR)
+ #define MACHINE_NUMBER   (0xFFFFFFFF)
+ #define ARM9LINUXFW_ADDR (0x08080000)
+ #define SYNC_ADDR        (0x1FFFFFF0)

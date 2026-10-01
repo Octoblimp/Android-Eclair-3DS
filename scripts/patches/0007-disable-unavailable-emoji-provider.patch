@@ -1,0 +1,16 @@
+diff --git a/core/java/android/text/Layout.java b/core/java/android/text/Layout.java
+--- a/core/java/android/text/Layout.java
++++ b/core/java/android/text/Layout.java
+@@ -44,7 +44,10 @@ public abstract class Layout {
+     private static final boolean DEBUG = true;
+ 
+-    /* package */ static final EmojiFactory EMOJI_FACTORY =
+-        EmojiFactory.newAvailableInstance();
++    // This image has no libemoji.so/provider.  Upstream's call into
++    // EmojiFactory JNI would return null in that supported case, but the
++    // fully-static port deliberately omits the dlopen-only JNI bridge.
++    // Preserve the same no-provider result without invoking absent JNI.
++    /* package */ static final EmojiFactory EMOJI_FACTORY = null;
+     /* package */ static final int MIN_EMOJI, MAX_EMOJI;
+ 
+     static {

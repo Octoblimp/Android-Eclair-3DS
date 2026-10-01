@@ -1,0 +1,82 @@
+diff --git a/board/nintendo3ds/rootfs_overlay/init.rc b/board/nintendo3ds/rootfs_overlay/init.rc
+--- a/board/nintendo3ds/rootfs_overlay/init.rc
++++ b/board/nintendo3ds/rootfs_overlay/init.rc
+@@ -4,6 +4,9 @@ on init
+     export PATH /sbin:/bin:/usr/sbin:/usr/bin
+     export TMPDIR /tmp
++    export ANDROID_ROOT /system
++    export ANDROID_ASSETS /system/app
++    export ANDROID_DATA /data
+ 
+     symlink /proc/self/fd /dev/fd
+@@ -31,6 +34,23 @@ on init
+     mkdir /system 0755 root root
+     mkdir /etc 0755 root root
+     mkdir /usr 0755 root root
++    # Keep UID-sensitive Android state on the writable initramfs rootfs.
++    # VFAT reports every inode as uid 0, which makes PackageManager reject
++    # application data directories assigned to uid 10000 and above.
++    mkdir /data 0771 system system
++    mkdir /data/data 0771 system system
++    mkdir /data/system 0775 system system
++    mkdir /data/misc 01771 system misc
++    mkdir /data/misc/wifi 0770 wifi wifi
++    mkdir /data/local 0771 shell shell
++    mkdir /data/local/tmp 0771 shell shell
++    mkdir /data/app 0771 system system
++    mkdir /data/app-private 0771 system system
++    mkdir /data/property 0700 root root
++    mkdir /data/dalvik-cache 0771 system system
++    mkdir /cache 0770 system cache
++    mkdir /cache/lost+found 0770 root root
++    mkdir /sqlite_stmt_journals 01777 root root
++    mount tmpfs tmpfs /sqlite_stmt_journals size=4m
+ 
+     mkdir /mnt 0755 root root
+@@ -46,8 +66,10 @@ on init
+     mkdir /mnt/sd/linux 0755 root root
+     mkdir /mnt/sd/linux/android 0755 root root
+     mkdir /mnt/sd/linux/android/data 0755 root root
+-    mkdir /mnt/sd/linux/android/data/property 0755 root root
+-    symlink /mnt/sd/linux/android/data /data
++    mkdir /mnt/sd/linux/android/data/dalvik-cache 0755 root root
++    # Bootclasspath caches are large and already prebuilt on SD.  Bind only
++    # that read-mostly directory; all UID-sensitive /data state remains RAM.
++    mount none /mnt/sd/linux/android/data/dalvik-cache /data/dalvik-cache bind
+ 
+     # Bind-mount, not symlink: parts of Android's own code assume /system
+diff --git a/board/nintendo3ds/rootfs_overlay/etc/init.rc b/board/nintendo3ds/rootfs_overlay/etc/init.rc
+--- a/board/nintendo3ds/rootfs_overlay/etc/init.rc
++++ b/board/nintendo3ds/rootfs_overlay/etc/init.rc
+@@ -132,6 +132,13 @@ service servicemanager /usr/sbin/servicemanager
+     user root
+     group root
+ 
++# PackageManager's privileged filesystem helper.  It creates application data
++# directories with their assigned Unix UIDs; a missing socket left every
++# package at uid 0 on the former VFAT-backed /data tree.
++service installd /system/bin/installd
++    class default
++    socket installd stream 600 system system
++
+ # The compositor. Owns /dev/graphics/fb1 (the bottom screen) through the
+diff --git a/board/nintendo3ds/rootfs_overlay/system/build.prop b/board/nintendo3ds/rootfs_overlay/system/build.prop
+--- a/board/nintendo3ds/rootfs_overlay/system/build.prop
++++ b/board/nintendo3ds/rootfs_overlay/system/build.prop
+@@ -56,10 +56,12 @@ ro.kernel.qemu=0
+ 
+ # --- Display --------------------------------------------------------------
+ # The Android UI targets the bottom screen: 320x240 physical, ~3.33in
+-# diagonal, which is ~120 dpi. At density 120 that is 426x320 dp -- i.e. a
+-# "normal" screen in Eclair's terms, the same dp footprint as the HVGA
+-# devices Eclair was designed around, just rotated. Getting this wrong makes
+-# every layout either microscopic or clipped.
+-ro.sf.lcd_density=120
++# diagonal.  Use Eclair's canonical mdpi bucket (160): every shipped framework
++# drawable is mdpi, and the legacy Java Bitmap wrapper on this ARMv6 port
++# reports zero dimensions on the 120/160 rescale path.  That made zygote,
++# StatusBar and AudioService fail on otherwise valid PNGs.  At 160 the assets
++# are consumed at native size and the real ARM resource preload is clean.
++ro.sf.lcd_density=160
+ 
+ # --- Dalvik ---------------------------------------------------------------

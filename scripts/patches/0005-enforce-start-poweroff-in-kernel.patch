@@ -1,0 +1,68 @@
+diff --git a/drivers/platform/nintendo3ds/ctr_pwrkey.c b/drivers/platform/nintendo3ds/ctr_pwrkey.c
+--- a/drivers/platform/nintendo3ds/ctr_pwrkey.c
++++ b/drivers/platform/nintendo3ds/ctr_pwrkey.c
+@@ -25,19 +25,35 @@
+ #include <linux/init.h>
++#include <linux/fs.h>
+ #include <linux/input.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
+ #include <linux/reboot.h>
+ #include <linux/timer.h>
++#include <linux/workqueue.h>
+ #include <linux/jiffies.h>
+ #include <linux/moduleparam.h>
+ 
+ #define CTR_PWRKEY_HOLD_MS_DEFAULT	3000
++#define CTR_PWRKEY_FORCE_MS_DEFAULT	20000
+ 
+ static unsigned int hold_ms = CTR_PWRKEY_HOLD_MS_DEFAULT;
+ module_param(hold_ms, uint, 0644);
+ MODULE_PARM_DESC(hold_ms, "milliseconds START must be held to power off");
+ 
+ static struct timer_list pwrkey_timer;
++static struct delayed_work pwrkey_force_work;
++
++static void ctr_pwrkey_force_poweroff(struct work_struct *work)
++{
++	/* orderly_poweroff() only waits for exec of kernel.poweroff_cmd, not
++	 * for the command to finish.  A script which starts successfully but
++	 * later hangs or whose reboot(2) is rejected therefore defeats its
++	 * force=true fallback.  Enforce the deadline in kernel context. */
++	pr_emerg("userspace did not cut power after %u ms -- forcing kernel poweroff\n",
++		 CTR_PWRKEY_FORCE_MS_DEFAULT);
++	emergency_sync();
++	kernel_power_off();
++}
+ 
+ static void ctr_pwrkey_timeout(struct timer_list *t)
+ {
+@@ -44,7 +60,10 @@ static void ctr_pwrkey_timeout(struct timer_list *t)
+ 	pr_info("START held for %u ms -- powering off\n", hold_ms);
+ 	/* Safe from timer (softirq) context: orderly_poweroff() only queues
+-	 * work, it does not block. force=true so a missing or failing
+-	 * poweroff command still results in a power off. */
++	 * work, it does not block.  Independently arm a kernel-side deadline:
++	 * orderly_poweroff(true) cannot detect a command which execs and then
++	 * fails, which is exactly what the captured hardware log showed. */
++	schedule_delayed_work(&pwrkey_force_work,
++		msecs_to_jiffies(CTR_PWRKEY_FORCE_MS_DEFAULT));
+ 	orderly_poweroff(true);
+ }
+ 
+@@ -126,6 +145,7 @@ static struct input_handler ctr_pwrkey_handler = {
+ static int __init ctr_pwrkey_init(void)
+ {
+ 	timer_setup(&pwrkey_timer, ctr_pwrkey_timeout, 0);
++	INIT_DELAYED_WORK(&pwrkey_force_work, ctr_pwrkey_force_poweroff);
+ 	return input_register_handler(&ctr_pwrkey_handler);
+ }
+ 
+@@ -132,6 +152,7 @@ static void __exit ctr_pwrkey_exit(void)
+ {
+ 	input_unregister_handler(&ctr_pwrkey_handler);
+ 	del_timer_sync(&pwrkey_timer);
++	cancel_delayed_work_sync(&pwrkey_force_work);
+ }
+ 
+ module_init(ctr_pwrkey_init);

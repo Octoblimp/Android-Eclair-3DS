@@ -1,0 +1,14 @@
+# mcu_buttons.kl -- New 3DS power/home/wifi hardware buttons
+#
+# Device name confirmed directly from a real boot log: "input:
+# mcu_buttons as /devices/platform/mcu_buttons/input/input3". Matches
+# the gpio-keys node in nintendo3ds.dtsi (KEY_POWER/KEY_HOME/KEY_WWAN).
+
+key 116   POWER   # KEY_POWER
+key 102   HOME    # KEY_HOME
+
+# KEY_WWAN (the physical wireless on/off switch, scancode 246) has no
+# confirmed Eclair-era Android KeyEvent equivalent -- deliberately left
+# unmapped rather than guessing a wrong one. EventHub will report it as
+# an unrecognized scancode until this is resolved (likely alongside
+# whatever wires real WiFi toggling in a later phase).

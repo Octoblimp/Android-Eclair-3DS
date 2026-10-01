@@ -1,0 +1,13 @@
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -183,9 +183,6 @@ class ServerThread extends Thread {
+                 Log.e(TAG, "Failure starting Window Manager", e);
+             }
+ 
+-            // Nintendo 3DS has no Bluetooth hardware; do not load or register it.
+-            Log.i(TAG, "Bluetooth Service disabled (no hardware)");
+-
+         } catch (RuntimeException e) {
+             Log.e("System", "Failure starting core service", e);
+         }

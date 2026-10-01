@@ -1,0 +1,8 @@
+# Nintendo_3DS_touch_HID.kl
+#
+# The current 3DS kernel driver is a direct, single-contact absolute
+# touchscreen.  It advertises ABS_X 0..319, ABS_Y 0..239 and BTN_TOUCH; those
+# events are consumed directly by Eclair's KeyInputQueue and need no key map.
+#
+# Keep this intentionally empty file so device-name lookup cannot fall back to
+# obsolete virtual-keyboard mappings from the original bring-up driver.

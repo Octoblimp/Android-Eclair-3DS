@@ -1,0 +1,208 @@
+diff --git a/arch/arm/boot/dts/nintendo3ds.dtsi b/arch/arm/boot/dts/nintendo3ds.dtsi
+--- a/arch/arm/boot/dts/nintendo3ds.dtsi
++++ b/arch/arm/boot/dts/nintendo3ds.dtsi
+@@ -281,13 +281,17 @@
+ 					reg = <0x40>;
+ 				};
+ 
+-				pwroff_reg: poweroff-regulator@20 {
+-					compatible = "nintendo,3dsmcu-regulator";
+-					regulator-name = "Power off";
+-
++				mcu_poweroff: poweroff@20 {
++					compatible = "nintendo,3dsmcu-poweroff";
+ 					reg = <0x20>;
+-					on = <0x00>;
+-					off = <0x01>;
++					value = <0x01>;
++					/* The dedicated driver writes while IRQs are
++					 * still enabled via pm_power_off_prepare(), then
++					 * retries through the adapter's atomic callback
++					 * if the board survives to machine_power_off().
++					 * The generic regulator-poweroff consumer never
++					 * probed on this platform, leaving pm_power_off
++					 * NULL and making RB_POWER_OFF silently return. */
+ 				};
+ 
+ 				reboot_reg: reset-regulator@20 {
+@@ -518,11 +522,6 @@
+ 		clock-output-names = "3ds:refclk268mhz";
+ 	};
+ 
+-	poweroff: poweroff {
+-		compatible = "regulator-poweroff";
+-		cpu-supply = <&pwroff_reg>;
+-	};
+-
+ 	mcu_buttons {
+ 		compatible = "gpio-keys";
+ 		interrupt-parent = <&mcuintc>;
+diff --git a/drivers/platform/nintendo3ds/Makefile b/drivers/platform/nintendo3ds/Makefile
+--- a/drivers/platform/nintendo3ds/Makefile
++++ b/drivers/platform/nintendo3ds/Makefile
+@@ -21,6 +21,7 @@ obj-$(CONFIG_CTR_I2C)	+= ctr_i2c.o
+ # always enabled if the MCU is enabled
+ obj-$(CONFIG_CTR_MCU)	+= mcu/intc.o
+ obj-$(CONFIG_CTR_MCU)	+= mcu/regulator.o
++obj-$(CONFIG_CTR_MCU)	+= mcu/poweroff.o
+ 
+ obj-$(CONFIG_CTR_MCUACCEL)	+= mcu/accel.o
+ obj-$(CONFIG_CTR_MCULED)	+= mcu/led.o
+diff --git a/drivers/platform/nintendo3ds/mcu/poweroff.c b/drivers/platform/nintendo3ds/mcu/poweroff.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/platform/nintendo3ds/mcu/poweroff.c
+@@ -0,0 +1,153 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Nintendo 3DS MCU power-off driver.
++ *
++ * The MCU powers the board down when register 0x20 is written with 0x01.
++ * This is deliberately a child of the already-probed nintendo,3ds-mcu I2C
++ * device instead of a root-level regulator-poweroff consumer.  The latter
++ * never bound on real hardware: RB_POWER_OFF returned in about 50 ms,
++ * pm_power_off's mandatory three-second delay never ran, and none of its
++ * breadcrumbs appeared in the persisted log.
++ *
++ * ARM's machine_power_off() disables local IRQs before invoking
++ * pm_power_off().  A normal regmap/regulator write there may sleep and its
++ * I2C completion IRQ cannot run.  Use pm_power_off_prepare() to issue the
++ * command while IRQs and normal I2C transfers still work.  If the board is
++ * somehow still alive later, pm_power_off() retries with i2c_transfer(); the
++ * I2C core selects ctr_i2c's master_xfer_atomic callback in that context.
++ */
++
++#define DRIVER_NAME "3dsmcu-poweroff"
++#define pr_fmt(fmt) DRIVER_NAME ": " fmt
++
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/reboot.h>
++
++#define CTR_MCU_POWER_REG_DEFAULT	0x20
++#define CTR_MCU_POWER_OFF_DEFAULT	0x01
++#define CTR_MCU_POWER_CUT_WAIT_MS	1000
++
++static struct i2c_client *poweroff_mcu;
++static u8 poweroff_reg = CTR_MCU_POWER_REG_DEFAULT;
++static u8 poweroff_value = CTR_MCU_POWER_OFF_DEFAULT;
++
++static int ctr_mcu_write_poweroff(void)
++{
++	u8 buf[2] = { poweroff_reg, poweroff_value };
++	struct i2c_msg msg = {
++		.addr = poweroff_mcu->addr,
++		.flags = 0,
++		.len = sizeof(buf),
++		.buf = buf,
++	};
++	int ret;
++
++	ret = i2c_transfer(poweroff_mcu->adapter, &msg, 1);
++	if (ret == 1)
++		return 0;
++	if (ret >= 0)
++		return -EIO;
++	return ret;
++}
++
++static void ctr_mcu_poweroff_prepare(void)
++{
++	int ret;
++
++	pr_emerg("writing MCU reg 0x%02x=0x%02x before IRQ shutdown\n",
++		 poweroff_reg, poweroff_value);
++	ret = ctr_mcu_write_poweroff();
++	pr_emerg("prepare write returned %d\n", ret);
++
++	/* A successful MCU command should remove power almost immediately. */
++	mdelay(CTR_MCU_POWER_CUT_WAIT_MS);
++	pr_emerg("still alive %d ms after prepare write; atomic retry follows\n",
++		 CTR_MCU_POWER_CUT_WAIT_MS);
++}
++
++static void ctr_mcu_poweroff(void)
++{
++	int ret;
++
++	pr_emerg("atomic retry with IRQs %s\n",
++		 irqs_disabled() ? "disabled" : "enabled");
++	ret = ctr_mcu_write_poweroff();
++	pr_emerg("atomic write returned %d\n", ret);
++
++	mdelay(CTR_MCU_POWER_CUT_WAIT_MS);
++	pr_emerg("ERROR: board still alive %d ms after atomic MCU write\n",
++		 CTR_MCU_POWER_CUT_WAIT_MS);
++
++	/* machine_power_off() assumes callbacks never return and leaves IRQs
++	 * disabled.  Restore them so a failed attempt remains diagnosable. */
++	if (irqs_disabled())
++		local_irq_enable();
++	WARN_ON(1);
++}
++
++static int ctr_mcu_poweroff_probe(struct platform_device *pdev)
++{
++	struct device *parent = pdev->dev.parent;
++	struct i2c_client *mcu;
++	u32 reg = CTR_MCU_POWER_REG_DEFAULT;
++	u32 value = CTR_MCU_POWER_OFF_DEFAULT;
++
++	if (!parent || parent->bus != &i2c_bus_type)
++		return -ENODEV;
++
++	if (pm_power_off || pm_power_off_prepare) {
++		dev_err(&pdev->dev, "poweroff callback already registered\n");
++		return -EBUSY;
++	}
++
++	mcu = to_i2c_client(parent);
++	of_property_read_u32(pdev->dev.of_node, "reg", &reg);
++	of_property_read_u32(pdev->dev.of_node, "value", &value);
++	if (reg > U8_MAX || value > U8_MAX)
++		return -EINVAL;
++
++	poweroff_mcu = mcu;
++	poweroff_reg = reg;
++	poweroff_value = value;
++	pm_power_off_prepare = ctr_mcu_poweroff_prepare;
++	pm_power_off = ctr_mcu_poweroff;
++
++	dev_info(&pdev->dev,
++		 "registered MCU poweroff (addr=0x%02x reg=0x%02x value=0x%02x)\n",
++		 mcu->addr, poweroff_reg, poweroff_value);
++	return 0;
++}
++
++static int ctr_mcu_poweroff_remove(struct platform_device *pdev)
++{
++	if (pm_power_off == ctr_mcu_poweroff)
++		pm_power_off = NULL;
++	if (pm_power_off_prepare == ctr_mcu_poweroff_prepare)
++		pm_power_off_prepare = NULL;
++	poweroff_mcu = NULL;
++	return 0;
++}
++
++static const struct of_device_id ctr_mcu_poweroff_of_match[] = {
++	{ .compatible = "nintendo,3dsmcu-poweroff" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, ctr_mcu_poweroff_of_match);
++
++static struct platform_driver ctr_mcu_poweroff_driver = {
++	.probe = ctr_mcu_poweroff_probe,
++	.remove = ctr_mcu_poweroff_remove,
++	.driver = {
++		.name = DRIVER_NAME,
++		.of_match_table = ctr_mcu_poweroff_of_match,
++	},
++};
++module_platform_driver(ctr_mcu_poweroff_driver);
++
++MODULE_DESCRIPTION("Nintendo 3DS MCU power-off driver");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:" DRIVER_NAME);

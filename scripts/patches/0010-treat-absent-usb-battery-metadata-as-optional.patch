@@ -1,0 +1,23 @@
+diff --git a/services/jni/com_android_server_BatteryService.cpp b/services/jni/com_android_server_BatteryService.cpp
+--- a/services/jni/com_android_server_BatteryService.cpp
++++ b/services/jni/com_android_server_BatteryService.cpp
+@@ -217,5 +217,7 @@ static void android_server_BatteryService_update(JNIEnv* env, jobject obj)
+     if (readFromFile(gPaths.batteryHealthPath, buf, SIZE) > 0)
+         env->SetIntField(obj, gFieldIds.mBatteryHealth, getBatteryHealth(buf));
++    else
++        env->SetIntField(obj, gFieldIds.mBatteryHealth, gConstants.healthUnknown);
+ 
+     if (readFromFile(gPaths.batteryTechnologyPath, buf, SIZE) > 0)
+         env->SetObjectField(obj, gFieldIds.mBatteryTechnology, env->NewStringUTF(buf));
+@@ -309,2 +311,2 @@ int register_android_server_BatteryService(JNIEnv* env)
+     if (!gPaths.usbOnlinePath)
+-        LOGE("usbOnlinePath not found");
++        LOGI("usbOnlinePath not provided (device has no USB charging)");
+@@ -313,2 +315,2 @@ int register_android_server_BatteryService(JNIEnv* env)
+     if (!gPaths.batteryHealthPath)
+-        LOGE("batteryHealthPath not found");
++        LOGI("batteryHealthPath not provided; using Unknown");
+@@ -323,2 +325,2 @@ int register_android_server_BatteryService(JNIEnv* env)
+     if (!gPaths.batteryTechnologyPath)
+-        LOGE("batteryTechnologyPath not found");
++        LOGI("batteryTechnologyPath not provided");

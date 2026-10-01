@@ -1,0 +1,34 @@
+android.patch:
+
+patch against Bouncy Castle:
+
+The main differences involve removing algorithms not included in the
+reference implementation (RI).  The libcore
+java.security.StandardNames test support class provides the most
+up-do-date documentation of differences between the RI's list of
+supported algorithms and Android's. Some notable omissions versus the
+RI:
+- LDAP
+- MD2
+- RC2
+
+Other performance (both speed and memory) changes:
+- singleton DERNull (BouncyCastle now does this but we make constructor private to be sure)
+- similarly made DERBoolean constructor private and moved to DERBoolean.{getInstance,TRUE,FALSE}
+- DERPrintableString interns its internal String values
+- DERObjectIdentifier interns its internal String indentifer value
+- changed uses of 'new Integer' to 'Integer.valueOf'
+- Added X509NameElementList to reduce small Vector allocation for X509Name key/value operations
+- Replaced X509Extensions hash/vector with new OrderedTable instance to cut down on memory allocation
+- PKCS12BagAttributeCarrier also uses OrderedTable to cut down on memory allocation
+- X509CertificateObject.getEncoded caches its result
+- Added IndexedPKIXParameters for faster cert lookup in CertPathValidatorUtilities.findTrustAnchor
+- CertPathValidatorUtilities.findTrustAnchor fast path compares encoded certs similar to PKIXCertPathValidatorSpi
+- Added ASN1Collection for use as new parent for ASN1Collection and ASN1Set to reduce small Vector allocation
+- removed references to SecretKeyFactory.PBE/PKCS5 SecretKeyFactory.PBE/PKCS12
+- OpenSSLDigest uses NativeCrypto JNI API
+- KeyStoreSpis made more tolerant of non-existant and null aliases
+- PKCS12 KeyStore.getCreationDate tries to mimic RI behavior on null and missing aliases
+- Make PKCS12 KeyStore throw error when setting non-PrivateKey, instead of on get
+- Make PKCS12 KeyStore tolerate setting with an empty certificate chain
+- Added wrapper for SecretKeyFactory.PBKDF2WithHmacSHA1

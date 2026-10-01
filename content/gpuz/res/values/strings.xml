@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GPU-Z</string>
+    <string name="tab_gpu">GPU Info</string>
+    <string name="tab_specs">System Specs</string>
+    <string name="tab_perf">Live Performance</string>
+    <string name="tab_bench">Graphics Tests</string>
+    <string name="btn_test_cube">3D Lit Cube</string>
+    <string name="btn_test_prism">Textured Prism</string>
+    <string name="btn_test_particle">Particle Stress</string>
+    <string name="btn_test_canvas">2D Canvas Fill</string>
+    <string name="btn_stop_test">Stop Test</string>
+</resources>

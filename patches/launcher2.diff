@@ -1,0 +1,1688 @@
+diff --git a/res/layout-land/workspace_screen.xml b/res/layout-land/workspace_screen.xml
+index 531bac2429cbb0dd692321b34c439a8adcf78471..a54f37b32a76d0f35752c67cfa4ae8cd9366f6b1 100644
+--- a/res/layout-land/workspace_screen.xml
++++ b/res/layout-land/workspace_screen.xml
+@@ -14,6 +14,7 @@
+      limitations under the License.
+ -->
+ 
++<!-- N3DS_320X240_NONOVERLAP_GRID: 4*66 + 56 = 320; 3*74 = 222. -->
+ <com.android.launcher2.CellLayout
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:launcher="http://schemas.android.com/apk/res/com.android.launcher2"
+@@ -24,8 +25,8 @@
+     launcher:cellWidth="@dimen/workspace_cell_width"
+     launcher:cellHeight="@dimen/workspace_cell_height"
+     launcher:longAxisStartPadding="0dip"
+-    launcher:longAxisEndPadding="55dip"
++    launcher:longAxisEndPadding="56dip"
+     launcher:shortAxisStartPadding="0dip"
+     launcher:shortAxisEndPadding="0dip"
+-    launcher:shortAxisCells="4"
++    launcher:shortAxisCells="3"
+     launcher:longAxisCells="4" />
+diff --git a/res/values-land/dimens.xml b/res/values-land/dimens.xml
+index d2d31c27a7e7ff1b8a2ac5eed6fa13a9b9424b5c..6941f11c07cc4e74894c9be4dde5253822f49382 100644
+--- a/res/values-land/dimens.xml
++++ b/res/values-land/dimens.xml
+@@ -15,7 +15,7 @@
+ -->
+ 
+ <resources>
+-    <dimen name="workspace_cell_width">106dip</dimen>
++    <dimen name="workspace_cell_width">66dip</dimen>
+     <dimen name="workspace_cell_height">74dip</dimen>
+     <dimen name="search_widget_inset">19dip</dimen>
+     <dimen name="gesture_thumbnail_inset">8dip</dimen>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index 6c43c1ec88c54463cae5d3dd32d52c1582b454e9..477231dd6a1d1b73141c288bc67f0ab9f610ad1e 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -23,7 +23,7 @@
+     </style>
+ 
+     <style name="WorkspaceIcon">
+-        <item name="android:textSize">13dip</item>
++        <item name="android:textSize">10dip</item>
+         <item name="android:singleLine">true</item>
+         <item name="android:ellipsize">marquee</item>
+         <item name="android:shadowColor">#FF000000</item>
+@@ -33,8 +33,8 @@
+         <item name="android:layout_width">fill_parent</item>
+         <item name="android:layout_height">fill_parent</item>
+         <item name="android:background">@drawable/shortcut_selector</item>
+-        <item name="android:paddingLeft">5dip</item>
+-        <item name="android:paddingRight">5dip</item>
++        <item name="android:paddingLeft">2dip</item>
++        <item name="android:paddingRight">2dip</item>
+     </style>
+ 
+     <style name="WorkspaceIcon.Portrait">
+@@ -49,8 +49,8 @@
+     <style name="WorkspaceIcon.Landscape">
+         <item name="android:drawablePadding">3dip</item>
+         <item name="android:paddingTop">2dip</item>
+-        <item name="android:layout_marginLeft">10dip</item>
+-        <item name="android:layout_marginRight">10dip</item>
++        <item name="android:layout_marginLeft">2dip</item>
++        <item name="android:layout_marginRight">2dip</item>
+     </style>
+ 
+     <style name="SearchButton" parent="@android:style/Widget.Button.Small">
+diff --git a/res/xml/default_workspace.xml b/res/xml/default_workspace.xml
+index 7937c3bd90cf8d2b4ed68d51c08e42d6533a1a1f..ccac31620d19ae2c72c4e78f705f0b380613331b 100644
+--- a/res/xml/default_workspace.xml
++++ b/res/xml/default_workspace.xml
+@@ -15,52 +15,57 @@
+ -->
+ 
+ <favorites xmlns:launcher="http://schemas.android.com/apk/res/com.android.launcher2">
+-
+-    <search
+-        launcher:screen="1"
+-        launcher:x="0"
+-        launcher:y="0" />
+-
++    <!-- The minimal n3ds image does not ship maps, Market, or Google Search
++         from the generic AOSP workspace. Start clean instead of resolving
++         missing apps during first boot. Messaging, the standalone N3dsDialer
++         app, and Dev Tools ship on this image and are pinned to the home
++         screen by default. -->
+     <favorite
+-        launcher:packageName="com.android.contacts"
+-        launcher:className="com.android.contacts.DialtactsActivity"
++        launcher:packageName="com.android.settings"
++        launcher:className="com.android.settings.Settings"
+         launcher:screen="1"
+         launcher:x="0"
+-        launcher:y="3" />
+-
++        launcher:y="0" />
+     <favorite
+-        launcher:packageName="com.android.contacts"
+-        launcher:className="com.android.contacts.DialtactsContactsEntryActivity"
++        launcher:packageName="com.android.globaltime"
++        launcher:className="com.android.globaltime.GlobalTime"
+         launcher:screen="1"
+         launcher:x="1"
+-        launcher:y="3" />
+-
++        launcher:y="0" />
+     <favorite
+         launcher:packageName="com.android.browser"
+         launcher:className="com.android.browser.BrowserActivity"
+         launcher:screen="1"
++        launcher:x="0"
++        launcher:y="1" />
++    <favorite
++        launcher:packageName="com.android.touchdiag"
++        launcher:className="com.android.touchdiag.TouchDiagnosticActivity"
++        launcher:screen="1"
+         launcher:x="2"
+-        launcher:y="3" />
+-
++        launcher:y="0" />
+     <favorite
+-        launcher:packageName="com.google.android.apps.maps"
+-        launcher:className="com.google.android.maps.MapsActivity"
++        launcher:packageName="com.android.gpuz"
++        launcher:className="com.android.gpuz.GPUZActivity"
+         launcher:screen="1"
+         launcher:x="3"
+-        launcher:y="3" />
+-
++        launcher:y="0" />
+     <favorite
+         launcher:packageName="com.android.mms"
+         launcher:className="com.android.mms.ui.ConversationList"
+         launcher:screen="1"
+-        launcher:x="0"
+-        launcher:y="2" />
+-
++        launcher:x="1"
++        launcher:y="1" />
+     <favorite
+-        launcher:packageName="com.android.vending"
+-        launcher:className="com.android.vending.AssetBrowserActivity"
++        launcher:packageName="com.android.n3dsdialer"
++        launcher:className="com.android.n3dsdialer.N3dsDialerActivity"
++        launcher:screen="1"
++        launcher:x="2"
++        launcher:y="1" />
++    <favorite
++        launcher:packageName="com.android.development"
++        launcher:className="com.android.development.Development"
+         launcher:screen="1"
+         launcher:x="3"
+-        launcher:y="2" />
+-
++        launcher:y="1" />
+ </favorites>
+diff --git a/src/com/android/launcher2/AllAppsView.java b/src/com/android/launcher2/AllAppsView.java
+index 732bce33c948166bea5fb3f7dad64f44acbdb150..c81e04b5257404f9ffe34f7f70916640f777dfd6 100644
+--- a/src/com/android/launcher2/AllAppsView.java
++++ b/src/com/android/launcher2/AllAppsView.java
+@@ -16,137 +16,67 @@
+ 
+ package com.android.launcher2;
+ 
+-import java.io.Writer;
+ import java.util.ArrayList;
+-import java.util.concurrent.Semaphore;
+-import java.lang.Float;
+ import java.util.Collections;
+ import java.util.Comparator;
+ 
+-import android.renderscript.RSSurfaceView;
+-import android.renderscript.RenderScript;
+-
+-import android.renderscript.RenderScript;
+-import android.renderscript.ProgramVertex;
+-import android.renderscript.Element;
+-import android.renderscript.Allocation;
+-import android.renderscript.Type;
+-import android.renderscript.Script;
+-import android.renderscript.ScriptC;
+-import android.renderscript.ProgramFragment;
+-import android.renderscript.ProgramStore;
+-import android.renderscript.Sampler;
+-import android.renderscript.SimpleMesh;
+-
+ import android.content.Context;
+-import android.content.res.Resources;
+-import android.database.DataSetObserver;
+ import android.graphics.Bitmap;
+-import android.graphics.BitmapFactory;
+-import android.graphics.Canvas;
+-import android.graphics.Paint;
++import android.graphics.Color;
+ import android.graphics.drawable.BitmapDrawable;
+ import android.graphics.drawable.Drawable;
+-import android.os.Message;
+-import android.os.SystemClock;
+ import android.util.AttributeSet;
+-import android.util.Log;
+-import android.view.KeyEvent;
+-import android.view.MotionEvent;
+-import android.view.Surface;
+-import android.view.SurfaceHolder;
+-import android.view.SurfaceView;
++import android.view.Gravity;
+ import android.view.View;
+-import android.view.VelocityTracker;
+-import android.view.ViewConfiguration;
+-import android.graphics.PixelFormat;
+-
+-
+-public class AllAppsView extends RSSurfaceView
+-        implements View.OnClickListener, View.OnLongClickListener, DragSource {
+-    private static final String TAG = "Launcher.AllAppsView";
+-
+-    /** Bit for mLocks for when there are icons being loaded. */
+-    private static final int LOCK_ICONS_PENDING = 1;
+-
+-    private static final int TRACKING_FLING = 0;
+-    private static final int TRACKING_HOME = 1;
++import android.view.ViewGroup;
++import android.widget.AdapterView;
++import android.widget.BaseAdapter;
++import android.widget.GridView;
++import android.widget.TextView;
++
++/**
++ * The native Android All Apps grid used on Android3DS.
++ *
++ * Launcher2's original AllAppsView is a RenderScript SurfaceView.  This port
++ * has no RenderScript runtime, and drawing a replacement into a top-level
++ * Surface created a second compositor layer which could obscure the desktop.
++ * Use the platform GridView/TextView widgets instead: this is an ordinary
++ * Android view hierarchy, participates in Launcher layout/focus normally,
++ * scrolls when more applications are installed, and matches the classic
++ * Android application drawer.
++ */
++public class AllAppsView extends GridView implements DragSource,
++        AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
++    private static final int COLUMN_COUNT = 4;
++    private static final int ICON_SIZE_PX = 48;
++    private static final int CELL_HEIGHT_PX = 96;
+ 
+     private Launcher mLauncher;
+     private DragController mDragController;
+-
+-    /** When this is 0, modifications are allowed, when it's not, they're not.
+-     * TODO: What about scrolling? */
+-    private int mLocks = LOCK_ICONS_PENDING;
+-
+-    private int mSlopX;
+-    private int mMaxFlingVelocity;
+-
+-    private Defines mDefines = new Defines();
+-    private RenderScript mRS;
+-    private RolloRS mRollo;
+-    private ArrayList<ApplicationInfo> mAllAppsList;
+-
+-    private int mPageCount;
+-    private boolean mStartedScrolling;
+-    private VelocityTracker mVelocity;
+-    private int mTouchTracking;
+-    private int mLastMotionX;
+-    private int mMotionDownRawX;
+-    private int mMotionDownRawY;
+-    private int mHomeButtonTop;
+-    private long mTouchTime;
+-
+-    static class Defines {
+-        public static final int ALLOC_PARAMS = 0;
+-        public static final int ALLOC_STATE = 1;
+-        public static final int ALLOC_ICON_IDS = 3;
+-        public static final int ALLOC_LABEL_IDS = 4;
+-        public static final int ALLOC_X_BORDERS = 5;
+-        public static final int ALLOC_Y_BORDERS = 6;
+-
+-        public static final int COLUMNS_PER_PAGE = 4;
+-        public static final int ROWS_PER_PAGE = 4;
+-
+-        public static final float RADIUS = 4.0f;
+-
+-        public static final int ICON_WIDTH_PX = 64;
+-        public static final int ICON_TEXTURE_WIDTH_PX = 128;
+-
+-        public static final int ICON_HEIGHT_PX = 64;
+-        public static final int ICON_TEXTURE_HEIGHT_PX = 128;
+-        public static final float ICON_TOP_OFFSET = 0.2f;
+-
+-        public static final float CAMERA_Z = -2;
+-
+-        public int SCREEN_WIDTH_PX;
+-        public int SCREEN_HEIGHT_PX;
+-
+-        public float FAR_ICON_SIZE;
+-
+-        public void recompute(int w, int h) {
+-            SCREEN_WIDTH_PX = 480;
+-            SCREEN_HEIGHT_PX = 800;
+-            FAR_ICON_SIZE = farSize(2 * ICON_WIDTH_PX / (float)w);
+-        }
+-
+-        private static float farSize(float sizeAt0) {
+-            return sizeAt0 * (Defines.RADIUS - Defines.CAMERA_Z) / -Defines.CAMERA_Z;
+-        }
+-    }
++    private final ArrayList<ApplicationInfo> mApps =
++            new ArrayList<ApplicationInfo>();
++    private final ApplicationsAdapter mAdapter;
+ 
+     public AllAppsView(Context context, AttributeSet attrs) {
+         super(context, attrs);
++
++        // N3DS_NATIVE_ALL_APPS_DRAWER: no SurfaceView, RenderScript, Canvas
++        // overlay, footer, or fixed 2x2 fallback.  The stock GridView handles
++        // scrolling, touch selection, D-pad focus, and native invalidation.
++        setNumColumns(COLUMN_COUNT);
++        setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
++        setGravity(Gravity.CENTER);
++        setVerticalSpacing(4);
++        setHorizontalSpacing(0);
++        setBackgroundResource(R.drawable.pattern_carbon_fiber_dark);
+         setFocusable(true);
+-        getHolder().setFormat(PixelFormat.TRANSLUCENT);
+-        final ViewConfiguration config = ViewConfiguration.get(context);
+-        mSlopX = config.getScaledTouchSlop();
+-        mMaxFlingVelocity = config.getScaledMaximumFlingVelocity();
++        setFocusableInTouchMode(true);
++        setVisibility(View.GONE);
+ 
+-        setOnClickListener(this);
+-        setOnLongClickListener(this);
+-        setZOrderOnTop(true);
+-        getHolder().setFormat(PixelFormat.TRANSLUCENT);
++        mAdapter = new ApplicationsAdapter();
++        setAdapter(mAdapter);
++        setOnItemClickListener(this);
++        setOnItemLongClickListener(this);
+     }
+ 
+     public AllAppsView(Context context, AttributeSet attrs, int defStyle) {
+@@ -157,839 +87,159 @@ public class AllAppsView extends RSSurfaceView
+         mLauncher = launcher;
+     }
+ 
+-    @Override
+-    public void surfaceDestroyed(SurfaceHolder holder) {
+-        super.surfaceDestroyed(holder);
+-
+-        destroyRenderScript();
+-        mRS = null;
+-        mRollo = null;
+-    }
+-
+-    @Override
+-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+-        super.surfaceChanged(holder, format, w, h);
+-
+-        long startTime = SystemClock.uptimeMillis();
+-
+-        mRS = createRenderScript(true);
+-        mRollo = new RolloRS();
+-        mRollo.init(getResources(), w, h);
+-        if (mAllAppsList != null) {
+-            mRollo.setApps(mAllAppsList);
+-            Log.d(TAG, "surfaceChanged... calling mRollo.setApps");
+-        }
+-
+-        Resources res = getContext().getResources();
+-        int barHeight = (int)res.getDimension(R.dimen.button_bar_height);
+-        mHomeButtonTop = h - barHeight;
+-
+-        long endTime = SystemClock.uptimeMillis();
+-        Log.d(TAG, "surfaceChanged took " + (endTime-startTime) + "ms");
+-    }
+-
+-    @Override
+-    public boolean onKeyDown(int keyCode, KeyEvent event)
+-    {
+-        // this method doesn't work when 'extends View' include 'extends ScrollView'.
+-        return super.onKeyDown(keyCode, event);
+-    }
+-
+-    @Override
+-    public boolean onTouchEvent(MotionEvent ev)
+-    {
+-        if (!isVisible()) {
+-            return true;
+-        }
+-
+-        if (mLocks != 0) {
+-            return true;
+-        }
+-
+-        super.onTouchEvent(ev);
+-
+-        int x = (int)ev.getX();
+-        int y = (int)ev.getY();
+-
+-        int deltaX;
+-        int action = ev.getAction();
+-        switch (action) {
+-        case MotionEvent.ACTION_DOWN:
+-            if (y > mRollo.mTouchYBorders[mRollo.mTouchYBorders.length-1]) {
+-                mTouchTracking = TRACKING_HOME;
+-            } else {
+-                mTouchTracking = TRACKING_FLING;
+-
+-                mMotionDownRawX = (int)ev.getRawX();
+-                mMotionDownRawY = (int)ev.getRawY();
+-                mLastMotionX = x;
+-
+-                mRollo.mState.newPositionX = ev.getRawX() / mDefines.SCREEN_WIDTH_PX;
+-                mRollo.mState.newTouchDown = 1;
+-
+-                if (!mRollo.checkClickOK()) {
+-                    mRollo.clearSelectedIcon();
+-                } else {
+-                    mRollo.selectIcon(x, y, mRollo.mMessageProc.mPosX);
+-                }
+-                mRollo.mState.save();
+-                mRollo.mInvokeMove.execute();
+-                mVelocity = VelocityTracker.obtain();
+-                mVelocity.addMovement(ev);
+-                mStartedScrolling = false;
+-            }
+-            break;
+-        case MotionEvent.ACTION_MOVE:
+-        case MotionEvent.ACTION_OUTSIDE:
+-            if (mTouchTracking == TRACKING_HOME) {
+-                // TODO: highlight?
+-            } else {
+-                int slopX = Math.abs(x - mLastMotionX);
+-                if (!mStartedScrolling && slopX < mSlopX) {
+-                    // don't update mLastMotionX so slopX is right and when we do start scrolling
+-                    // below, we get the right delta.
+-                } else {
+-                    mRollo.mState.newPositionX = ev.getRawX() / mDefines.SCREEN_WIDTH_PX;
+-                    mRollo.mState.newTouchDown = 1;
+-                    mRollo.mInvokeMove.execute();
+-
+-                    mStartedScrolling = true;
+-                    mRollo.clearSelectedIcon();
+-                    deltaX = x - mLastMotionX;
+-                    mVelocity.addMovement(ev);
+-                    mRollo.mState.save();
+-                    mLastMotionX = x;
+-                }
+-            }
+-            break;
+-        case MotionEvent.ACTION_UP:
+-        case MotionEvent.ACTION_CANCEL:
+-            if (mTouchTracking == TRACKING_HOME) {
+-                if (action == MotionEvent.ACTION_UP) {
+-                    if (y > mRollo.mTouchYBorders[mRollo.mTouchYBorders.length-1]) {
+-                        mLauncher.closeAllApps(true);
+-                    }
+-                }
+-            } else {
+-                mRollo.mState.newTouchDown = 0;
+-                mRollo.mState.newPositionX = ev.getRawX() / mDefines.SCREEN_WIDTH_PX;
+-
+-                mVelocity.computeCurrentVelocity(1000 /* px/sec */, mMaxFlingVelocity);
+-                mRollo.mState.flingVelocityX
+-                        = mVelocity.getXVelocity() / mDefines.SCREEN_WIDTH_PX;
+-                mRollo.clearSelectedIcon();
+-                mRollo.mState.save();
+-                mRollo.mInvokeFling.execute();
+-
+-                mLastMotionX = -10000;
+-                if (mVelocity != null) {
+-                    mVelocity.recycle();
+-                    mVelocity = null;
+-                }
+-                break;
+-            }
+-        }
+-
+-        return true;
+-    }
+-
+-    public void onClick(View v) {
+-        if (mLocks != 0 || !isVisible()) {
+-            return;
+-        }
+-        int index = mRollo.mState.selectedIconIndex;
+-        if (mRollo.checkClickOK() && index >= 0 && index < mAllAppsList.size()) {
+-            ApplicationInfo app = mAllAppsList.get(index);
+-            mLauncher.startActivitySafely(app.intent);
+-        }
+-    }
+-
+-    public boolean onLongClick(View v) {
+-        if (mLocks != 0 || !isVisible()) {
+-            return true;
+-        }
+-        int index = mRollo.mState.selectedIconIndex;
+-
+-        if (mRollo.checkClickOK() && index >= 0 && index < mAllAppsList.size()) {
+-            ApplicationInfo app = mAllAppsList.get(index);
+-
+-            // We don't really have an accurate location to use.  This will do.
+-            int screenX = mMotionDownRawX - (mDefines.ICON_WIDTH_PX / 2);
+-            int screenY = mMotionDownRawY - mDefines.ICON_HEIGHT_PX;
+-
+-            int left = (mDefines.ICON_TEXTURE_WIDTH_PX - mDefines.ICON_WIDTH_PX) / 2;
+-            int top = (mDefines.ICON_TEXTURE_HEIGHT_PX - mDefines.ICON_HEIGHT_PX) / 2;
+-            mDragController.startDrag(app.iconBitmap, screenX, screenY,
+-                    left, top, mDefines.ICON_WIDTH_PX, mDefines.ICON_HEIGHT_PX,
+-                    this, app, DragController.DRAG_ACTION_COPY);
+-
+-            mLauncher.closeAllApps(true);
+-        }
+-        return true;
+-    }
+-
+     public void setDragController(DragController dragger) {
+         mDragController = dragger;
+     }
+ 
+-    public void onDropCompleted(View target, boolean success) {
+-    }
+-
+-    /**
+-     * Zoom to the specifed amount.
+-     *
+-     * @param amount [0..1] 0 is hidden, 1 is open
+-     * @param animate Whether to animate.
+-     */
+     public void zoom(float amount) {
+-        if (mRollo == null) {
+-            return;
+-        }
+-
+-        cancelLongPress();
+-        mRollo.clearSelectedIcon();
+         if (amount > 0.001f) {
+-            // set in readback, so we're correct even before the next frame
+-            mRollo.mState.zoomTarget = amount;
++            setVisibility(View.VISIBLE);
++            bringToFront();
++            requestFocus();
++            setSelection(0);
+         } else {
+-            mRollo.mState.zoomTarget = 0;
++            setVisibility(View.GONE);
+         }
+-        mRollo.mState.save();
+     }
+ 
+     public boolean isVisible() {
+-        if (mRollo == null) {
+-            return false;
+-        }
+-        return mRollo.mMessageProc.mZoom > 0.001f;
+-    }
+-
+-    @Override
+-    public boolean onTrackballEvent(MotionEvent ev)
+-    {
+-        float x = ev.getX();
+-        float y = ev.getY();
+-        //Float tx = new Float(x);
+-        //Float ty = new Float(y);
+-        //Log.e("rs", "tbe " + tx.toString() + ", " + ty.toString());
+-
+-
+-        return true;
++        return getVisibility() == View.VISIBLE;
+     }
+ 
+     public void setApps(ArrayList<ApplicationInfo> list) {
+-        mAllAppsList = list;
+-        if (mRollo != null) {
+-            mRollo.setApps(list);
++        mApps.clear();
++        if (list != null) {
++            mApps.addAll(list);
++            Collections.sort(mApps, mAppNameComparator);
+         }
+-        mPageCount = countPages(list.size());
+-        mLocks &= ~LOCK_ICONS_PENDING;
++        mAdapter.notifyDataSetChanged();
+     }
+ 
+     public void addApps(ArrayList<ApplicationInfo> list) {
+-        final int N = list.size();
+-        if (mRollo != null) {
+-            mRollo.reallocAppsList(mRollo.mState.iconCount + N);
+-        }
+-
+-        for (int i=0; i<N; i++) {
+-            final ApplicationInfo item = list.get(i);
+-            int index = Collections.binarySearch(mAllAppsList, item, mAppNameComp);
+-            if (index < 0) {
+-                index = -(index+1);
+-            }
+-            mAllAppsList.add(index, item);
+-            if (mRollo != null) {
+-                mRollo.addApp(index, item);
+-                mRollo.mState.iconCount++;
+-            }
+-        }
+-
+-        if (mRollo != null) {
+-            mRollo.saveAppsList();
+-        }
++        if (list == null || list.isEmpty()) return;
++        mApps.addAll(list);
++        Collections.sort(mApps, mAppNameComparator);
++        mAdapter.notifyDataSetChanged();
+     }
+ 
+     public void removeApps(ArrayList<ApplicationInfo> list) {
+-        final int N = list.size();
+-        for (int i=0; i<N; i++) {
+-            final ApplicationInfo item = list.get(i);
+-            int index = Collections.binarySearch(mAllAppsList, item, mAppIntentComp);
+-            if (index >= 0) {
+-                mAllAppsList.remove(index);
+-                if (mRollo != null) {
+-                    mRollo.removeApp(index);
+-                    mRollo.mState.iconCount--;
++        if (list == null || list.isEmpty()) return;
++        for (int i = 0; i < list.size(); i++) {
++            ApplicationInfo remove = list.get(i);
++            for (int j = mApps.size() - 1; j >= 0; j--) {
++                if (sameApplication(mApps.get(j), remove)) {
++                    mApps.remove(j);
+                 }
+-            } else {
+-                Log.e(TAG, "couldn't find a match for item \"" + item + "\"");
+-                // Try to recover.  This should keep us from crashing for now.
+             }
+         }
+-
+-        if (mRollo != null) {
+-            mRollo.saveAppsList();
+-        }
++        mAdapter.notifyDataSetChanged();
+     }
+ 
+     public void updateApps(String packageName, ArrayList<ApplicationInfo> list) {
+-        // Just remove and add, because they may need to be re-sorted.
+-        removeApps(list);
+-        addApps(list);
+-    }
+-
+-    private Comparator<ApplicationInfo> mAppNameComp = new Comparator<ApplicationInfo>() {
+-        public int compare(ApplicationInfo a, ApplicationInfo b) {
+-            int result = a.title.toString().compareTo(b.toString());
+-            if (result != 0) {
+-                return result;
+-            }
+-            return a.intent.getComponent().compareTo(b.intent.getComponent());
+-        }
+-    };
+-
+-    private Comparator<ApplicationInfo> mAppIntentComp = new Comparator<ApplicationInfo>() {
+-        public int compare(ApplicationInfo a, ApplicationInfo b) {
+-            return a.intent.getComponent().compareTo(b.intent.getComponent());
+-        }
+-    };
+-
+-    private static int countPages(int iconCount) {
+-        int iconsPerPage = Defines.COLUMNS_PER_PAGE * Defines.ROWS_PER_PAGE;
+-        int pages = iconCount / iconsPerPage;
+-        if (pages*iconsPerPage != iconCount) {
+-            pages++;
+-        }
+-        return pages;
+-    }
+-
+-    public class RolloRS {
+-
+-        // Allocations ======
+-
+-        private int mWidth;
+-        private int mHeight;
+-
+-        private Resources mRes;
+-        private Script mScript;
+-
+-        private Script.Invokable mInvokeMove;
+-        private Script.Invokable mInvokeFling;
+-        private Script.Invokable mInvokeTouchUp;
+-
+-        private ProgramStore mPSIcons;
+-        private ProgramStore mPSText;
+-        private ProgramFragment mPFColor;
+-        private ProgramFragment mPFTexLinear;
+-        private ProgramFragment mPFTexNearest;
+-        private ProgramVertex mPV;
+-        private ProgramVertex mPVOrtho;
+-        private SimpleMesh mMesh;
+-
+-        private Allocation mHomeButton;
+-
+-        private Allocation[] mIcons;
+-        private int[] mIconIds;
+-        private Allocation mAllocIconIds;
+-
+-        private Allocation[] mLabels;
+-        private int[] mLabelIds;
+-        private Allocation mAllocLabelIds;
+-        private Allocation mSelectedIcon;
+-
+-        private int[] mTouchYBorders;
+-        private Allocation mAllocTouchYBorders;
+-        private int[] mTouchXBorders;
+-        private Allocation mAllocTouchXBorders;
+-
+-        private Bitmap mSelectionBitmap;
+-        private Canvas mSelectionCanvas;
+-
+-        Params mParams;
+-        State mState;
+-
+-        class BaseAlloc {
+-            Allocation mAlloc;
+-            Type mType;
+-
+-            void save() {
+-                mAlloc.data(this);
+-            }
+-        }
+-
+-        class AAMessage extends RenderScript.RSMessage {
+-            public void run() {
+-                mPosX = ((float)mData[0]) / (1 << 16);
+-                mVelocity = ((float)mData[1]) / (1 << 16);
+-                mZoom = ((float)mData[2]) / (1 << 16);
+-                //Log.d("rs", "new msg " + mPosX + "  " + mVelocity + "  " + mZoom);
+-            }
+-            float mZoom;
+-            float mPosX;
+-            float mVelocity;
+-        }
+-        AAMessage mMessageProc;
+-
+-        private boolean checkClickOK() {
+-            //android.util.Log.e("rs", "check click " + Float.toString(mReadback.velocity) + ", " + Float.toString(mReadback.posX));
+-            return (Math.abs(mMessageProc.mVelocity) < 0.1f) &&
+-                   (Math.abs(mMessageProc.mPosX - Math.round(mMessageProc.mPosX)) < 0.1f);
+-        }
+-
+-        class Params extends BaseAlloc {
+-            Params() {
+-                mType = Type.createFromClass(mRS, Params.class, 1, "ParamsClass");
+-                mAlloc = Allocation.createTyped(mRS, mType);
+-                save();
+-            }
+-            public int bubbleWidth;
+-            public int bubbleHeight;
+-            public int bubbleBitmapWidth;
+-            public int bubbleBitmapHeight;
+-
+-            public int homeButtonId;
+-            public int homeButtonWidth;
+-            public int homeButtonHeight;
+-            public int homeButtonTextureWidth;
+-            public int homeButtonTextureHeight;
+-        }
+-
+-        class State extends BaseAlloc {
+-            public float newPositionX;
+-            public int newTouchDown;
+-            public float flingVelocityX;
+-            public int iconCount;
+-            public int selectedIconIndex = -1;
+-            public int selectedIconTexture;
+-            public float zoomTarget;
+-
+-            State() {
+-                mType = Type.createFromClass(mRS, State.class, 1, "StateClass");
+-                mAlloc = Allocation.createTyped(mRS, mType);
+-                save();
+-            }
+-        }
+-
+-        public RolloRS() {
+-        }
+-
+-        public void init(Resources res, int width, int height) {
+-            mRes = res;
+-            mWidth = width;
+-            mHeight = height;
+-            mDefines.recompute(width, height);
+-            initProgramVertex();
+-            initProgramFragment();
+-            initProgramStore();
+-            initMesh();
+-            initGl();
+-            initData();
+-            initTouchState();
+-            initRs();
+-        }
+-
+-        public void initMesh() {
+-            SimpleMesh.TriangleMeshBuilder tm = new SimpleMesh.TriangleMeshBuilder(mRS, 3,
+-                SimpleMesh.TriangleMeshBuilder.TEXTURE_0 | SimpleMesh.TriangleMeshBuilder.COLOR);
+-
+-            for (int ct=0; ct < 450; ct++) {
+-                float x = 0;
+-                float z = 0;
+-                float l = 1.f;
+-
+-                if (ct < 190) {
+-                    z = 0.1f + 0.05f * (190 - ct);
+-                    x = -1;
+-                    l = 0.125f + (0.125f / 190.f) * ct;
+-                } else if (ct >= 190 && ct < 200) {
+-                    float a = (3.14f * 0.5f) * (0.1f * (ct - 200));
+-                    float s = (float)Math.sin(a);
+-                    float c = (float)Math.cos(a);
+-                    x = -0.9f + s * 0.1f;
+-                    z = 0.1f - c * 0.1f;
+-                    l = 0.25f + 0.075f * (ct - 190);
+-                } else if (ct >= 200 && ct < 250) {
+-                    z = 0.f;
+-                    x = -0.9f + (1.8f * (ct - 200) / 50.f);
+-                } else if (ct >= 250 && ct < 260) {
+-                    float a = (3.14f * 0.5f) * (0.1f * (ct - 250));
+-                    float s = (float)Math.sin(a);
+-                    float c = (float)Math.cos(a);
+-                    x = 0.9f + s * 0.1f;
+-                    z = 0.1f - c * 0.1f;
+-                    l = 0.25f + 0.075f * (260 - ct);
+-                } else if (ct >= 260) {
+-                    z = 0.1f + 0.05f * (ct - 260);
+-                    x = 1;
+-                    l = 0.125f + (0.125f / 190.f) * (450 - ct);
++        if (packageName != null) {
++            for (int i = mApps.size() - 1; i >= 0; i--) {
++                ApplicationInfo app = mApps.get(i);
++                if (app.intent != null && app.intent.getComponent() != null
++                        && packageName.equals(
++                                app.intent.getComponent().getPackageName())) {
++                    mApps.remove(i);
+                 }
+-                //Log.e("rs", "ct " + Integer.toString(ct) + "  x = " + Float.toString(x) + ", z = " + Float.toString(z));
+-                //Log.e("rs", "ct " + Integer.toString(ct) + "  l = " + Float.toString(l));
+-                float s = ct * 0.1f;
+-                tm.setColor(l, l, l, 0.99f);
+-                tm.setTexture(s, 1);
+-                tm.addVertex(x, -0.5f, z);
+-                tm.setTexture(s, 0);
+-                tm.addVertex(x, 0.5f, z);
+             }
+-            for (int ct=0; ct < (450*2 - 2); ct+= 2) {
+-                tm.addTriangle(ct, ct+1, ct+2);
+-                tm.addTriangle(ct+1, ct+3, ct+2);
+-            }
+-            mMesh = tm.create();
+-            mMesh.setName("SMMesh");
+-
+-        }
+-
+-
+-        private void initProgramVertex() {
+-            ProgramVertex.MatrixAllocation pva = new ProgramVertex.MatrixAllocation(mRS);
+-            pva.setupProjectionNormalized(mWidth, mHeight);
+-
+-            ProgramVertex.Builder pvb = new ProgramVertex.Builder(mRS, null, null);
+-            pvb.setTextureMatrixEnable(true);
+-            mPV = pvb.create();
+-            mPV.setName("PV");
+-            mPV.bindAllocation(pva);
+-
+-            pva = new ProgramVertex.MatrixAllocation(mRS);
+-            pva.setupOrthoWindow(mWidth, mHeight);
+-            pvb.setTextureMatrixEnable(true);
+-            mPVOrtho = pvb.create();
+-            mPVOrtho.setName("PVOrtho");
+-            mPVOrtho.bindAllocation(pva);
+-
+-            mRS.contextBindProgramVertex(mPV);
+-        }
+-
+-        private void initProgramFragment() {
+-            Sampler.Builder sb = new Sampler.Builder(mRS);
+-            sb.setMin(Sampler.Value.LINEAR);
+-            sb.setMag(Sampler.Value.LINEAR);
+-            sb.setWrapS(Sampler.Value.CLAMP);
+-            sb.setWrapT(Sampler.Value.CLAMP);
+-            Sampler linear = sb.create();
+-
+-            sb.setMin(Sampler.Value.NEAREST);
+-            sb.setMag(Sampler.Value.NEAREST);
+-            Sampler nearest = sb.create();
+-
+-            ProgramFragment.Builder bf = new ProgramFragment.Builder(mRS, null, null);
+-            mPFColor = bf.create();
+-            mPFColor.setName("PFColor");
+-
+-            bf.setTexEnable(true, 0);
+-            bf.setTexEnvMode(ProgramFragment.EnvMode.MODULATE, 0);
+-            mPFTexLinear = bf.create();
+-            mPFTexLinear.setName("PFTexLinear");
+-            mPFTexLinear.bindSampler(linear, 0);
+-
+-            mPFTexNearest = bf.create();
+-            mPFTexNearest.setName("PFTexNearest");
+-            mPFTexNearest.bindSampler(nearest, 0);
+-        }
+-
+-        private void initProgramStore() {
+-            ProgramStore.Builder bs = new ProgramStore.Builder(mRS, null, null);
+-            bs.setDepthFunc(ProgramStore.DepthFunc.ALWAYS);
+-            bs.setColorMask(true,true,true,false);
+-            bs.setDitherEnable(true);
+-            bs.setBlendFunc(ProgramStore.BlendSrcFunc.SRC_ALPHA,
+-                            ProgramStore.BlendDstFunc.ONE_MINUS_SRC_ALPHA);
+-            mPSIcons = bs.create();
+-            mPSIcons.setName("PSIcons");
+-
+-            //bs.setDitherEnable(false);
+-            //mPSText = bs.create();
+-            //mPSText.setName("PSText");
+-        }
+-
+-        private void initGl() {
+-            mTouchXBorders = new int[Defines.COLUMNS_PER_PAGE+1];
+-            mAllocTouchXBorders = Allocation.createSized(mRS, Element.USER_I32(mRS),
+-                    mTouchXBorders.length);
+-            mAllocTouchXBorders.data(mTouchXBorders);
+-
+-            mTouchYBorders = new int[Defines.ROWS_PER_PAGE+1];
+-            mAllocTouchYBorders = Allocation.createSized(mRS, Element.USER_I32(mRS),
+-                    mTouchYBorders.length);
+-            mAllocTouchYBorders.data(mTouchYBorders);
+         }
++        if (list != null) mApps.addAll(list);
++        Collections.sort(mApps, mAppNameComparator);
++        mAdapter.notifyDataSetChanged();
++    }
+ 
+-        private void initData() {
+-            mParams = new Params();
+-            mState = new State();
+-
+-            final Utilities.BubbleText bubble = new Utilities.BubbleText(getContext());
+-
+-            mParams.bubbleWidth = bubble.getBubbleWidth();
+-            mParams.bubbleHeight = bubble.getMaxBubbleHeight();
+-            mParams.bubbleBitmapWidth = bubble.getBitmapWidth();
+-            mParams.bubbleBitmapHeight = bubble.getBitmapHeight();
+-
+-            mHomeButton = Allocation.createFromBitmapResource(mRS, mRes,
+-                    R.drawable.home_button, Element.RGBA_8888(mRS), false);
+-            mHomeButton.uploadToTexture(0);
+-            mParams.homeButtonId = mHomeButton.getID();
+-            mParams.homeButtonWidth = 76;
+-            mParams.homeButtonHeight = 68;
+-            mParams.homeButtonTextureWidth = 128;
+-            mParams.homeButtonTextureHeight = 128;
+-
+-            mParams.save();
+-            mState.save();
+-
+-            mSelectionBitmap = Bitmap.createBitmap(Defines.ICON_TEXTURE_WIDTH_PX,
+-                    Defines.ICON_TEXTURE_HEIGHT_PX, Bitmap.Config.ARGB_8888);
+-            mSelectionCanvas = new Canvas(mSelectionBitmap);
+-
+-            setApps(null);
+-        }
+-
+-        private void initRs() {
+-            ScriptC.Builder sb = new ScriptC.Builder(mRS);
+-            sb.setScript(mRes, R.raw.rollo);
+-            //sb.setScript(mRes, R.raw.rollo2);
+-            sb.setRoot(true);
+-            sb.addDefines(mDefines);
+-            sb.setType(mParams.mType, "params", Defines.ALLOC_PARAMS);
+-            sb.setType(mState.mType, "state", Defines.ALLOC_STATE);
+-            mInvokeMove = sb.addInvokable("move");
+-            mInvokeFling = sb.addInvokable("fling");
+-            mInvokeTouchUp = sb.addInvokable("touchUp");
+-            mScript = sb.create();
+-            mScript.setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+-
+-            mScript.bindAllocation(mParams.mAlloc, Defines.ALLOC_PARAMS);
+-            mScript.bindAllocation(mState.mAlloc, Defines.ALLOC_STATE);
+-            mScript.bindAllocation(mAllocIconIds, Defines.ALLOC_ICON_IDS);
+-            mScript.bindAllocation(mAllocLabelIds, Defines.ALLOC_LABEL_IDS);
+-            mScript.bindAllocation(mAllocTouchXBorders, Defines.ALLOC_X_BORDERS);
+-            mScript.bindAllocation(mAllocTouchYBorders, Defines.ALLOC_Y_BORDERS);
+-
+-            mMessageProc = new AAMessage();
+-            mRS.mMessageCallback = mMessageProc;
+-            mRS.contextBindRootScript(mScript);
++    public void onItemClick(AdapterView parent, View view, int position, long id) {
++        if (mLauncher != null && position >= 0 && position < mApps.size()) {
++            mLauncher.startActivitySafely(mApps.get(position).intent);
+         }
++    }
+ 
+-        private void setApps(ArrayList<ApplicationInfo> list) {
+-            final int count = list != null ? list.size() : 0;
+-            int allocCount = count;
+-            if (allocCount < 1) {
+-                allocCount = 1;
+-            }
+-
+-            mIcons = new Allocation[count];
+-            mIconIds = new int[allocCount];
+-            mAllocIconIds = Allocation.createSized(mRS, Element.USER_I32(mRS), allocCount);
+-
+-            mLabels = new Allocation[count];
+-            mLabelIds = new int[allocCount];
+-            mAllocLabelIds = Allocation.createSized(mRS, Element.USER_I32(mRS), allocCount);
+-
+-            Element ie8888 = Element.RGBA_8888(mRS);
+-
+-            Utilities.BubbleText bubble = new Utilities.BubbleText(getContext());
+-
+-            for (int i=0; i<count; i++) {
+-                uploadAppIcon(i, list.get(i));
+-            }
+-
+-            mState.iconCount = count;
+-
+-            saveAppsList();
++    public boolean onItemLongClick(AdapterView parent, View view,
++            int position, long id) {
++        if (mLauncher == null || mDragController == null
++                || position < 0 || position >= mApps.size()) {
++            return true;
+         }
+ 
+-        private void uploadAppIcon(int index, ApplicationInfo item) {
+-            mIcons[index] = Allocation.createFromBitmap(mRS, item.iconBitmap,
+-                    Element.RGBA_8888(mRS), false);
+-            mLabels[index] = Allocation.createFromBitmap(mRS, item.titleBitmap,
+-                    Element.RGBA_8888(mRS), false);
+-
+-            mIcons[index].uploadToTexture(0);
+-            mLabels[index].uploadToTexture(0);
+-
+-            mIconIds[index] = mIcons[index].getID();
+-            mLabelIds[index] = mLabels[index].getID();
++        ApplicationInfo app = mApps.get(position);
++        int[] location = new int[2];
++        view.getLocationOnScreen(location);
++        Bitmap icon = app.iconBitmap;
++        if (icon != null) {
++            mDragController.startDrag(icon, location[0], location[1],
++                    0, 0, icon.getWidth(), icon.getHeight(), this, app,
++                    DragController.DRAG_ACTION_COPY);
++            mLauncher.closeAllApps(true);
+         }
++        return true;
++    }
+ 
+-        /**
+-         * Puts the empty spaces at the end.  Updates mState.iconCount.  You must
+-         * fill in the values and call saveAppsList().
+-         */
+-        private void reallocAppsList(int count) {
+-            Allocation[] icons = new Allocation[count];
+-            int[] iconIds = new int[count];
+-            mAllocIconIds = Allocation.createSized(mRS, Element.USER_I32(mRS), count);
+-
+-            Allocation[] labels = new Allocation[count];
+-            int[] labelIds = new int[count];
+-            mAllocLabelIds = Allocation.createSized(mRS, Element.USER_I32(mRS), count);
+-
+-            final int oldCount = mIcons.length;
++    public void onDropCompleted(View target, boolean success) {
++    }
+ 
+-            System.arraycopy(mIcons, 0, icons, 0, oldCount);
+-            System.arraycopy(mIconIds, 0, iconIds, 0, oldCount);
+-            System.arraycopy(mLabels, 0, labels, 0, oldCount);
+-            System.arraycopy(mLabelIds, 0, labelIds, 0, oldCount);
++    private static boolean sameApplication(ApplicationInfo left,
++            ApplicationInfo right) {
++        return left != null && right != null && left.intent != null
++                && right.intent != null && left.intent.getComponent() != null
++                && left.intent.getComponent().equals(
++                        right.intent.getComponent());
++    }
+ 
+-            mIcons = icons;
+-            mIconIds = iconIds;
+-            mLabels = labels;
+-            mLabelIds = labelIds;
++    private final Comparator<ApplicationInfo> mAppNameComparator =
++            new Comparator<ApplicationInfo>() {
++        public int compare(ApplicationInfo left, ApplicationInfo right) {
++            String leftTitle = left.title == null ? "" : left.title.toString();
++            String rightTitle = right.title == null ? "" : right.title.toString();
++            int result = leftTitle.compareToIgnoreCase(rightTitle);
++            if (result != 0) return result;
++            if (left.intent == null || left.intent.getComponent() == null) return -1;
++            if (right.intent == null || right.intent.getComponent() == null) return 1;
++            return left.intent.getComponent().compareTo(
++                    right.intent.getComponent());
+         }
++    };
+ 
+-        /**
+-         * Handle the allocations for the new app.  Make sure you call saveAppsList when done.
+-         */
+-        private void addApp(int index, ApplicationInfo item) {
+-            final int count = mState.iconCount - index;
+-            final int dest = index + 1;
+-
+-            System.arraycopy(mIcons, index, mIcons, dest, count);
+-            System.arraycopy(mIconIds, index, mIconIds, dest, count);
+-            System.arraycopy(mLabels, index, mLabels, dest, count);
+-            System.arraycopy(mLabelIds, index, mLabelIds, dest, count);
+-
+-            uploadAppIcon(index, item);
++    private class ApplicationsAdapter extends BaseAdapter {
++        public int getCount() {
++            return mApps.size();
+         }
+ 
+-        /**
+-         * Handle the allocations for the removed app.  Make sure you call saveAppsList when done.
+-         */
+-        private void removeApp(int index) {
+-            final int count = mState.iconCount - index - 1;
+-            final int src = index + 1;
+-
+-            System.arraycopy(mIcons, src, mIcons, index, count);
+-            System.arraycopy(mIconIds, src, mIconIds, index, count);
+-            System.arraycopy(mLabels, src, mLabels, index, count);
+-            System.arraycopy(mLabelIds, src, mLabelIds, index, count);
+-
+-            final int last = mState.iconCount - 1;
+-            mIcons[last] = null;
+-            mIconIds[last] = 0;
+-            mLabels[last] = null;
+-            mLabelIds[last] = 0;
++        public Object getItem(int position) {
++            return mApps.get(position);
+         }
+ 
+-        /**
+-         * Send the apps list structures to RS.
+-         */
+-        private void saveAppsList() {
+-            mRS.contextBindRootScript(null);
+-            
+-            mAllocIconIds.data(mIconIds);
+-            mAllocLabelIds.data(mLabelIds);
+-
+-            if (mScript != null) { // this happens when we init it
+-                mScript.bindAllocation(mAllocIconIds, Defines.ALLOC_ICON_IDS);
+-                mScript.bindAllocation(mAllocLabelIds, Defines.ALLOC_LABEL_IDS);
+-            }
+-
+-            mState.save();
+-
+-            // Note: mScript may be null if we haven't initialized it yet.
+-            // In that case, this is a no-op.
+-            mRS.contextBindRootScript(mScript);
++        public long getItemId(int position) {
++            return position;
+         }
+ 
+-        void initTouchState() {
+-            int width = getWidth();
+-            int height = getHeight();
+-
+-            int iconsSize;
+-            if (width < height) {
+-                iconsSize = width;
++        public View getView(int position, View convertView, ViewGroup parent) {
++            TextView label;
++            if (convertView instanceof TextView) {
++                label = (TextView) convertView;
+             } else {
+-                iconsSize = height;
++                label = new TextView(getContext());
++                label.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
++                label.setTextColor(Color.WHITE);
++                label.setTextSize(12);
++                label.setSingleLine(true);
++                label.setPadding(2, 5, 2, 2);
++                label.setMinHeight(CELL_HEIGHT_PX);
++                label.setFocusable(false);
+             }
+-            int cellHeight = iconsSize / Defines.ROWS_PER_PAGE;
+-            int cellWidth = iconsSize / Defines.COLUMNS_PER_PAGE;
+-
+-            int centerY = (height / 2) - (int)(cellHeight * 0.2f);
+-            mTouchYBorders[0] = centerY - (int)(2.8f * cellHeight);
+-            mTouchYBorders[1] = centerY - (int)(1.25f * cellHeight);
+-            mTouchYBorders[2] = centerY;
+-            mTouchYBorders[3] = centerY + (int)(1.25f * cellHeight);;
+-            mTouchYBorders[4] = centerY + (int)(2.6f * cellHeight);
+-
+-            mAllocTouchYBorders.data(mTouchYBorders);
+-
+-            int centerX = (width / 2);
+-            mTouchXBorders[0] = centerX - (2 * cellWidth);
+-            mTouchXBorders[1] = centerX - (int)(0.85f * cellWidth);
+-            mTouchXBorders[2] = centerX;
+-            mTouchXBorders[3] = centerX + (int)(0.85f * cellWidth);
+-            mTouchXBorders[4] = centerX + (2 * cellWidth);
+-
+-            mAllocTouchXBorders.data(mTouchXBorders);
+-        }
+-
+-        int chooseTappedIcon(int x, int y, float page) {
+-            int currentPage = (int)page;
+ 
+-            int col = -1;
+-            int row = -1;
+-
+-            for (int i=0; i<Defines.COLUMNS_PER_PAGE; i++) {
+-                if (x >= mTouchXBorders[i] && x < mTouchXBorders[i+1]) {
+-                    col = i;
+-                    break;
+-                }
+-            }
+-            for (int i=0; i<Defines.ROWS_PER_PAGE; i++) {
+-                if (y >= mTouchYBorders[i] && y < mTouchYBorders[i+1]) {
+-                    row = i;
+-                    break;
+-                }
++            ApplicationInfo app = mApps.get(position);
++            label.setText(app.title == null ? "" : app.title);
++            Drawable icon = null;
++            if (app.iconBitmap != null) {
++                icon = new BitmapDrawable(getResources(), app.iconBitmap);
++                icon.setBounds(0, 0, ICON_SIZE_PX, ICON_SIZE_PX);
+             }
+-
+-            if (row < 0 || col < 0) {
+-                return -1;
+-            }
+-
+-            return (currentPage * Defines.ROWS_PER_PAGE * Defines.COLUMNS_PER_PAGE)
+-                    + (row * Defines.ROWS_PER_PAGE) + col;
++            label.setCompoundDrawables(null, icon, null, null);
++            label.setCompoundDrawablePadding(3);
++            return label;
+         }
+-
+-        /**
+-         * You need to call save() on mState on your own after calling this.
+-         */
+-        void selectIcon(int x, int y, float pos) {
+-            int index = chooseTappedIcon(x, y, pos);
+-            selectIcon(index);
+-        }
+-
+-        void selectIcon(int index) {
+-            int iconCount = mAllAppsList.size();
+-            if (index < 0 || index >= iconCount) {
+-                mState.selectedIconIndex = -1;
+-                return;
+-            } else {
+-                mState.selectedIconIndex = index;
+-
+-                Bitmap selectionBitmap = mSelectionBitmap;
+-
+-                Utilities.drawSelectedAllAppsBitmap(mSelectionCanvas,
+-                        selectionBitmap.getWidth(), selectionBitmap.getHeight(),
+-                        mAllAppsList.get(index).iconBitmap);
+-
+-                mSelectedIcon = Allocation.createFromBitmap(mRS, selectionBitmap,
+-                        Element.RGBA_8888(mRS), false);
+-                mSelectedIcon.uploadToTexture(0);
+-                mState.selectedIconTexture = mSelectedIcon.getID();
+-            }
+-        }
+-
+-        /**
+-         * You need to call save() on mState on your own after calling this.
+-         */
+-        void clearSelectedIcon() {
+-            mState.selectedIconIndex = -1;
+-        }
+-
+     }
+ }
+-
+-
+diff --git a/src/com/android/launcher2/DragController.java b/src/com/android/launcher2/DragController.java
+index d4d142458f503a3dca22431a166c0186de1f049d..d1d3f1db3fd7a35792c7df6b88efa1c3236a0c54 100644
+--- a/src/com/android/launcher2/DragController.java
++++ b/src/com/android/launcher2/DragController.java
+@@ -75,6 +75,46 @@ public class DragController {
+     /** Whether or not we're dragging. */
+     private boolean mDragging;
+ 
++    /*
++     * N3DS_DRAG_WATCHDOG.
++     *
++     * Last line of defence.  N3DS_DRAG_IS_TOUCH_ONLY stops the only way we
++     * know of to strand a drag, and N3DS_DRAG_VIEW_IS_NOT_INTERACTIVE stops a
++     * stranded one from locking the user out -- but a drag that nothing can
++     * end is severe enough to be worth a timeout as well, since the only
++     * recovery the user had was pulling the power.
++     *
++     * Every MotionEvent that reaches the controller during a drag rearms this.
++     * If a full DRAG_INPUT_TIMEOUT passes with no input at all, the drag is
++     * unwound the same way a drop onto empty space unwinds it: the source is
++     * told the drop failed, so Workspace puts the icon back where it came
++     * from, and endDrag() makes the original View visible and tears the drag
++     * image down.  A real drag rearms it roughly every frame, so this can
++     * only fire on a drag that genuinely has no one driving it.
++     */
++    private static final long DRAG_INPUT_TIMEOUT = 4000;
++
++    private final Runnable mDragWatchdog = new Runnable() {
++        public void run() {
++            if (!mDragging) {
++                return;
++            }
++            Log.w(Launcher.LOG_TAG, "DragController: no input for "
++                    + DRAG_INPUT_TIMEOUT + "ms, cancelling stranded drag");
++            if (mDragSource != null) {
++                mDragSource.onDropCompleted(null, false);
++            }
++            endDrag();
++        }
++    };
++
++    private void armDragWatchdog() {
++        mHandler.removeCallbacks(mDragWatchdog);
++        if (mDragging) {
++            mHandler.postDelayed(mDragWatchdog, DRAG_INPUT_TIMEOUT);
++        }
++    }
++
+     /** X coordinate of the down event. */
+     private float mMotionDownX;
+ 
+@@ -226,6 +266,7 @@ public class DragController {
+         mDragging = true;
+         mDragSource = source;
+         mDragInfo = dragInfo;
++        armDragWatchdog();
+ 
+         mVibrator.vibrate(VIBRATE_DURATION);
+ 
+@@ -280,6 +321,7 @@ public class DragController {
+     }
+ 
+     private void endDrag() {
++        mHandler.removeCallbacks(mDragWatchdog);
+         if (mDragging) {
+             mDragging = false;
+             if (mOriginator != null) {
+@@ -308,6 +350,8 @@ public class DragController {
+         final int screenX = clamp((int)ev.getRawX(), 0, mDisplayMetrics.widthPixels);
+         final int screenY = clamp((int)ev.getRawY(), 0, mDisplayMetrics.heightPixels);
+ 
++        armDragWatchdog();
++
+         switch (action) {
+             case MotionEvent.ACTION_MOVE:
+                 break;
+@@ -346,6 +390,8 @@ public class DragController {
+         final int screenX = clamp((int)ev.getRawX(), 0, mDisplayMetrics.widthPixels);
+         final int screenY = clamp((int)ev.getRawY(), 0, mDisplayMetrics.heightPixels);
+ 
++        armDragWatchdog();
++
+         switch (action) {
+         case MotionEvent.ACTION_DOWN:
+             // Remember where the motion event started
+diff --git a/src/com/android/launcher2/DragView.java b/src/com/android/launcher2/DragView.java
+index 7128ded94c3a009a0a7b44cb47a8b150cb10f66d..19fca46425d8a2dce0dd77bdecfcfeaa837c8c60 100644
+--- a/src/com/android/launcher2/DragView.java
++++ b/src/com/android/launcher2/DragView.java
+@@ -148,8 +148,31 @@ public class DragView extends View implements TweenCallback {
+                 ViewGroup.LayoutParams.WRAP_CONTENT,
+                 touchX-mRegistrationX, touchY-mRegistrationY,
+                 WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL,
++                /*
++                 * N3DS_DRAG_VIEW_IS_NOT_INTERACTIVE.
++                 *
++                 * This window used to be created touchable and focusable,
++                 * which is why a stuck drag locked the whole launcher out
++                 * rather than merely looking wrong: a focusable sub-panel on
++                 * top of everything takes the input focus and eats every tap
++                 * and every key press aimed at the window underneath.
++                 *
++                 * Stock Launcher2 gets away with it because a drag only ever
++                 * exists between a finger going down and the same finger
++                 * coming up, and that gesture keeps being delivered to the
++                 * window that first received it.  Once a drag can outlive the
++                 * gesture -- see N3DS_DRAG_IS_TOUCH_ONLY -- the window is
++                 * left sitting there with focus and nothing can dismiss it.
++                 *
++                 * The drag image is pure decoration.  Every event that drives
++                 * a drag is handled by DragLayer in the main window, so this
++                 * window has no business consuming input at all, in any build
++                 * and whatever started the drag.
++                 */
+                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                     | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
++                    | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
++                    | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                     /*| WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM*/,
+                 pixelFormat);
+ //        lp.token = mStatusBarView.getWindowToken();
+diff --git a/src/com/android/launcher2/Launcher.java b/src/com/android/launcher2/Launcher.java
+index 1b9ee1dd29818bb2b188fdf2497215fa13a41c36..03a97159f50cd06fba04f7221a9aa3b47ae5893d 100644
+--- a/src/com/android/launcher2/Launcher.java
++++ b/src/com/android/launcher2/Launcher.java
+@@ -89,7 +89,6 @@ public final class Launcher extends Activity
+ 
+     static final boolean PROFILE_STARTUP = false;
+     static final boolean PROFILE_ROTATE = false;
+-    static final boolean DEBUG_USER_INTERFACE = false;
+ 
+     private static final int WALLPAPER_SCREENS_SPAN = 2;
+ 
+@@ -402,6 +401,13 @@ public final class Launcher extends Activity
+                 public void run() {
+                     ISearchManager searchManagerService = ISearchManager.Stub.asInterface(
+                             ServiceManager.getService(Context.SEARCH_SERVICE));
++                    // N3DS_LAUNCHER_NO_SEARCH_SERVICE (#326): SystemServer never
++                    // starts "search" on this device, so this was null and
++                    // HOME pressed with the launcher already running crashed it.
++                    if (searchManagerService == null) {
++                        Log.i(LOG_TAG, "N3DS_LAUNCHER_NO_SEARCH_SERVICE: nothing to stop");
++                        return;
++                    }
+                     try {
+                         searchManagerService.stopSearch();
+                     } catch (RemoteException e) {
+@@ -1287,6 +1293,11 @@ public final class Launcher extends Activity
+                     mBackDown = false;
+                     return true;
+                 case KeyEvent.KEYCODE_HOME:
++                    if (!event.isCanceled() && isAllAppsVisible()) {
++                        // N3DS_HOME_CLOSES_SOFTWARE_DRAWER: Launcher is already
++                        // HOME, so no new intent is guaranteed. Close directly.
++                        closeAllApps(true);
++                    }
+                     mHomeDown = false;
+                     return true;
+             }
+@@ -1418,6 +1429,38 @@ public final class Launcher extends Activity
+             return false;
+         }
+ 
++        /*
++         * N3DS_DRAG_IS_TOUCH_ONLY.
++         *
++         * Holding A over an icon used to start a drag and there was no way
++         * out of it but a hard power-off.  View.onKeyDown() posts a
++         * long-press check for KEYCODE_DPAD_CENTER exactly as it does for a
++         * finger, so the A button reaches this method looking like a real
++         * long press -- but the rest of the drag machinery is driven purely
++         * by MotionEvents.  With no finger on the glass there is no
++         * ACTION_MOVE to steer the drag and no ACTION_UP to drop it, so it
++         * ran forever: the icon vanished (startDrag sets the source View
++         * GONE), the drag image sat wherever the last touch happened to be,
++         * and DragController.dispatchKeyEvent() swallowed every key while
++         * mDragging was true.
++         *
++         * The 3DS has a touchscreen and that is the only sane way to
++         * rearrange icons on it, so refuse the gesture at the source.
++         * isInTouchMode() is the right test and not a proxy: the framework
++         * leaves touch mode on any D-pad or key event and re-enters it on
++         * the next touch, so this is false precisely when the long press
++         * came from a button.  A long press that came from the glass is
++         * unaffected and still drags.
++         *
++         * Two further layers back this up, because a drag that cannot be
++         * ended is bad enough to be worth defending twice more:
++         * N3DS_DRAG_VIEW_IS_NOT_INTERACTIVE in DragView.java and
++         * N3DS_DRAG_WATCHDOG in DragController.java.
++         */
++        if (!v.isInTouchMode()) {
++            return true;
++        }
++
+         if (!(v instanceof CellLayout)) {
+             v = (View) v.getParent();
+         }
+@@ -1604,6 +1647,7 @@ public final class Launcher extends Activity
+ 
+     void showAllApps() {
+         mAllAppsGrid.zoom(1.0f);
++        mAllAppsGrid.requestFocus();
+         //mWorkspace.hide();
+ 
+         // TODO: fade these two too
+@@ -1667,6 +1711,12 @@ public final class Launcher extends Activity
+         }
+ 
+         public void onDismiss(DialogInterface dialog) {
++            /* N3DS_REPEATABLE_WORKSPACE_LONG_PRESS: onLongClick() disables
++             * workspace long presses before opening this dialog.  Eclair's
++             * original empty callback never restored that latch, so the
++             * menu worked exactly once for the life of Launcher. */
++            mWorkspace.setAllowLongPress(true);
++            mWaitingForResult = false;
+         }
+ 
+         private void cleanup() {
+@@ -1768,17 +1818,6 @@ public final class Launcher extends Activity
+             ((ViewGroup) workspace.getChildAt(i)).removeAllViewsInLayout();
+         }
+ 
+-        if (DEBUG_USER_INTERFACE) {
+-            android.widget.Button finishButton = new android.widget.Button(this);
+-            finishButton.setText("Finish");
+-            workspace.addInScreen(finishButton, 1, 0, 0, 1, 1);
+-
+-            finishButton.setOnClickListener(new android.widget.Button.OnClickListener() {
+-                public void onClick(View v) {
+-                    finish();
+-                }
+-            });
+-        }
+     }
+ 
+     /**
+diff --git a/src/com/android/launcher2/LauncherProvider.java b/src/com/android/launcher2/LauncherProvider.java
+index dff72a29fb49cbb300e1233b5c34f349f7ec5cd3..9c4eb7d4ce8d58088c6c1f7baf742749bca32daa 100644
+--- a/src/com/android/launcher2/LauncherProvider.java
++++ b/src/com/android/launcher2/LauncherProvider.java
+@@ -55,7 +55,9 @@ public class LauncherProvider extends ContentProvider {
+ 
+     private static final String DATABASE_NAME = "launcher.db";
+     
+-    private static final int DATABASE_VERSION = 4;
++    // Version 11 adds the bundled Browser to the second row without wiping an
++    // existing home layout. Version 10 remains the 320x240 grid migration.
++    private static final int DATABASE_VERSION = 11;
+ 
+     static final String AUTHORITY = "com.android.launcher2.settings";
+     
+@@ -387,6 +389,38 @@ public class LauncherProvider extends ContentProvider {
+                     db.endTransaction();
+                 }
+             }
++
++            if (version < 8) {
++                // N3DS_GLOBAL_TIME_EXISTING_WORKSPACE: add the newly bundled
++                // AOSP app without wiping the user's existing home layout.
++                if (addGlobalTimeFavorite(db)) {
++                    version = 8;
++                }
++            }
++
++            if (version < 9) {
++                // N3DS_SPACED_THREE_APP_WORKSPACE: version 8 inserted Global
++                // Time into the gap that version 7 deliberately created. Move
++                // it below Settings and repair existing databases in place.
++                arrangeN3dsFavorites(db);
++                version = 9;
++            }
++
++            if (version < 10) {
++                // N3DS_320X240_WORKSPACE_MIGRATION: the old 106px cells
++                // overlapped because four could not fit beside the 56px app
++                // drawer. Repack bundled apps into the corrected 66px row.
++                arrangeN3dsFavorites(db);
++                version = 10;
++            }
++
++            if (version < 11) {
++                // N3DS_BROWSER_EXISTING_WORKSPACE: add the newly bundled AOSP
++                // Browser without wiping the user's existing home layout.
++                if (addBrowserFavorite(db)) {
++                    version = 11;
++                }
++            }
+             
+             if (version != DATABASE_VERSION) {
+                 Log.w(LOG_TAG, "Destroying all old data.");
+@@ -395,6 +429,109 @@ public class LauncherProvider extends ContentProvider {
+                 onCreate(db);
+             }
+         }
++
++        private boolean addGlobalTimeFavorite(SQLiteDatabase db) {
++            final Intent intent = new Intent(Intent.ACTION_MAIN, null);
++            intent.addCategory(Intent.CATEGORY_LAUNCHER);
++            intent.setComponent(new ComponentName("com.android.globaltime",
++                    "com.android.globaltime.GlobalTime"));
++            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                    | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
++            final String uri = intent.toUri(0);
++            Cursor cursor = null;
++            try {
++                cursor = db.query(TABLE_FAVORITES, new String[] { Favorites._ID },
++                        Favorites.INTENT + "=?", new String[] { uri },
++                        null, null, null);
++                if (cursor.moveToFirst()) {
++                    return true;
++                }
++                ActivityInfo info = mContext.getPackageManager().getActivityInfo(
++                        intent.getComponent(), 0);
++                ContentValues values = new ContentValues();
++                values.put(Favorites.TITLE,
++                        info.loadLabel(mContext.getPackageManager()).toString());
++                values.put(Favorites.INTENT, uri);
++                values.put(Favorites.CONTAINER, Favorites.CONTAINER_DESKTOP);
++                values.put(Favorites.SCREEN, 1);
++                values.put(Favorites.CELLX, 1);
++                values.put(Favorites.CELLY, 0);
++                values.put(Favorites.SPANX, 1);
++                values.put(Favorites.SPANY, 1);
++                values.put(Favorites.ITEM_TYPE, Favorites.ITEM_TYPE_APPLICATION);
++                return db.insert(TABLE_FAVORITES, null, values) >= 0;
++            } catch (PackageManager.NameNotFoundException e) {
++                Log.w(LOG_TAG, "Global Time is not installed during upgrade", e);
++                return false;
++            } finally {
++                if (cursor != null) cursor.close();
++            }
++        }
++
++        private boolean addBrowserFavorite(SQLiteDatabase db) {
++            final Intent intent = new Intent(Intent.ACTION_MAIN, null);
++            intent.addCategory(Intent.CATEGORY_LAUNCHER);
++            intent.setComponent(new ComponentName("com.android.browser",
++                    "com.android.browser.BrowserActivity"));
++            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                    | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
++            final String uri = intent.toUri(0);
++            Cursor cursor = null;
++            try {
++                cursor = db.query(TABLE_FAVORITES, new String[] { Favorites._ID },
++                        Favorites.INTENT + "=?", new String[] { uri },
++                        null, null, null);
++                if (cursor.moveToFirst()) {
++                    return true;
++                }
++                ActivityInfo info = mContext.getPackageManager().getActivityInfo(
++                        intent.getComponent(), 0);
++                ContentValues values = new ContentValues();
++                values.put(Favorites.TITLE,
++                        info.loadLabel(mContext.getPackageManager()).toString());
++                values.put(Favorites.INTENT, uri);
++                values.put(Favorites.CONTAINER, Favorites.CONTAINER_DESKTOP);
++                values.put(Favorites.SCREEN, 1);
++                values.put(Favorites.CELLX, 0);
++                values.put(Favorites.CELLY, 1);
++                values.put(Favorites.SPANX, 1);
++                values.put(Favorites.SPANY, 1);
++                values.put(Favorites.ITEM_TYPE, Favorites.ITEM_TYPE_APPLICATION);
++                return db.insert(TABLE_FAVORITES, null, values) >= 0;
++            } catch (PackageManager.NameNotFoundException e) {
++                Log.w(LOG_TAG, "Browser is not installed during upgrade", e);
++                return false;
++            } finally {
++                if (cursor != null) cursor.close();
++            }
++        }
++
++        private void arrangeN3dsFavorites(SQLiteDatabase db) {
++            moveFavorite(db, "com.android.settings",
++                    "com.android.settings.Settings", 0, 0);
++            moveFavorite(db, "com.android.touchdiag",
++                    "com.android.touchdiag.TouchDiagnosticActivity", 2, 0);
++            moveFavorite(db, "com.android.globaltime",
++                    "com.android.globaltime.GlobalTime", 1, 0);
++            moveFavorite(db, "com.android.gpuz",
++                    "com.android.gpuz.GPUZActivity", 3, 0);
++        }
++
++        private void moveFavorite(SQLiteDatabase db, String packageName,
++                String className, int cellX, int cellY) {
++            final Intent intent = new Intent(Intent.ACTION_MAIN, null);
++            intent.addCategory(Intent.CATEGORY_LAUNCHER);
++            intent.setComponent(new ComponentName(packageName, className));
++            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                    | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
++
++            final ContentValues values = new ContentValues();
++            values.put(Favorites.SCREEN, 1);
++            values.put(Favorites.CELLX, cellX);
++            values.put(Favorites.CELLY, cellY);
++            db.update(TABLE_FAVORITES, values, Favorites.INTENT + "=?",
++                    new String[] { intent.toUri(0) });
++        }
+         
+         /**
+          * Upgrade existing clock and photo frame widgets into their new widget

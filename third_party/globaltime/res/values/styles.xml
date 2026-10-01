@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/* //device/apps/Calendar/assets/res/any/styles.xml
+**
+** Copyright 2006, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License"); 
+** you may not use this file except in compliance with the License. 
+** You may obtain a copy of the License at 
+**
+**     http://www.apache.org/licenses/LICENSE-2.0 
+**
+** Unless required by applicable law or agreed to in writing, software 
+** distributed under the License is distributed on an "AS IS" BASIS, 
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+** See the License for the specific language governing permissions and 
+** limitations under the License.
+*/
+-->
+<resources>
+    <style name="Theme" parent="android:Theme.Black">
+        <item name="android:windowNoTitle">true</item>
+        <!-- N3DS_GLOBALTIME_TRANSLUCENT_WINDOW: the globe is drawn into a
+             SurfaceView, i.e. a TYPE_APPLICATION_MEDIA layer *underneath* this
+             activity's decor window.  SurfaceFlinger only subtracts a layer's
+             transparent-region hint when that layer needs blending
+             (SurfaceFlinger.cpp computeVisibleRegions), and
+             Layer::mNeedsBlending is taken straight from the pixel format's
+             alpha range.  An opaque decor therefore covers the globe layer
+             completely and the panel can only be black; fmt=-3 was never the
+             bug it was mistaken for, it is the requirement.  Keep the stock
+             null background so ViewRoot clears the decor to fully transparent
+             and the SurfaceView below shows through. -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@null</item>
+        <!-- <item name="android:windowFrame">@null</item> -->
+    </style>
+</resources>

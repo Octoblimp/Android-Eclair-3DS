@@ -1,0 +1,14 @@
+diff --git a/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh b/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
+--- a/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
++++ b/board/nintendo3ds/rootfs_overlay/etc/ctr_poweroff.sh
+@@ -11,7 +11,8 @@
+ # reboot(RB_POWER_OFF) directly, which is what we want.
+ #
+ # The power really is cut rather than the CPU merely halting: the device tree
+-# has a "regulator-poweroff" node wired to the MCU's power-off regulator, and
+-# CONFIG_POWER_RESET_REGULATOR=y installs it as pm_power_off.
++# has a child of the working Nintendo 3DS MCU MFD.  Its built-in poweroff
++# driver writes the MCU power-control register from pm_power_off_prepare and
++# provides an atomic-I2C retry from pm_power_off if the first write is ignored.
+ 
+ kmsg() {

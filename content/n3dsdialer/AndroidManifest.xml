@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.n3dsdialer"
+    android:versionCode="1"
+    android:versionName="1.0"
+    android:sharedUserId="android.uid.system">
+
+    <uses-sdk android:minSdkVersion="5" />
+
+    <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="io.divergen.telco.ACCESS" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/icon_dialer">
+        <activity
+            android:name=".N3dsDialerActivity"
+            android:label="@string/app_name"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|keyboardHidden"
+            android:screenOrientation="nosensor">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="tel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="voicemail" />
+            </intent-filter>
+        </activity>
+
+        <!-- New-contact editor. Reached from N3dsDialerActivity by an explicit
+             Intent, and (N3DS_CONTACTS_INSERT_OR_EDIT) from Mms "Add to
+             contacts": the stock Contacts app that used to answer that
+             INSERT_OR_EDIT is retired, and Mms starts it unguarded, so without
+             this filter the tap force-closes Mms. No launcher category, so per
+             project convention it needs no PNG icon of its own. -->
+        <activity
+            android:name=".N3dsContactsActivity"
+            android:label="@string/app_name"
+            android:configChanges="orientation|keyboardHidden"
+            android:screenOrientation="nosensor">
+            <intent-filter>
+                <action android:name="android.intent.action.INSERT_OR_EDIT" />
+                <action android:name="android.intent.action.INSERT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/contact" />
+                <data android:mimeType="vnd.android.cursor.item/person" />
+                <data android:mimeType="vnd.android.cursor.item/raw_contact" />
+            </intent-filter>
+        </activity>
+        <!-- N3DS_CALL_LOG_RECEIVER (#327): Phone's TelcoService reports every
+             call (and every downloaded voicemail) here, so the log is written
+             even when the dialer process is not running. It used to listen to
+             io.divergen.telco.action.STATE, which TelcoService sends on every
+             12 s poll: that started this process every 12 seconds. The
+             io.divergen.telco.ACCESS permission is a signature permission held
+             by the Phone package, which is signed with the same platform key,
+             so nothing else on the device can forge these. -->
+        <receiver android:name=".TelcoStateReceiver"
+            android:permission="io.divergen.telco.ACCESS">
+            <intent-filter>
+                <action android:name="io.divergen.telco.action.CALL_LOG" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

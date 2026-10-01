@@ -1,0 +1,15 @@
+# 3DSTelco Mobile Registration Configuration
+#
+# Uncomment the following line to automatically turn on Mobile Data at boot
+# mobile_data_on_boot=1
+#
+# Put your setup code here to automatically register on boot:
+# setup_code=
+#
+# After a successful registration 3DSTelco rewrites this file with the
+# issued identity so it survives a Settings data reset.  These keys are
+# managed by the device; do not hand-edit them.
+# token=
+# number=
+# endpoint=https://3dstelco.divergen.io
+# expires_at=

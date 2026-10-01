@@ -1,0 +1,53 @@
+diff --git a/base/core/jni/android/graphics/Matrix.cpp b/base/core/jni/android/graphics/Matrix.cpp
+index 7dc21c2..587dd65 100644
+--- a/base/core/jni/android/graphics/Matrix.cpp
++++ b/base/core/jni/android/graphics/Matrix.cpp
+@@ -22,5 +22,14 @@
+ 
+ namespace android {
+ 
++/*
++ * Dalvik's ARM CallEABI.S invokes JNI entry points using the base AAPCS
++ * (soft-float) convention.  Android3DS is built with a hard-float glibc
++ * toolchain, so scalar float arguments otherwise arrive in VFP registers
++ * and every Matrix transform sees garbage.  Keep the function body and all
++ * calls it makes hard-float, but give the JNI boundary the ABI Dalvik uses.
++ */
++#define DALVIK_JNI_ABI __attribute__((pcs("aapcs")))
++
+ class SkMatrixGlue {
+ public:
+@@ -54,7 +64,7 @@ public:
+         obj->setTranslate(dx_, dy_);
+     }
+  
+-    static void setScale__FFFF(JNIEnv* env, jobject clazz, SkMatrix* obj, jfloat sx, jfloat sy, jfloat px, jfloat py) {
++    static void DALVIK_JNI_ABI setScale__FFFF(JNIEnv* env, jobject clazz, SkMatrix* obj, jfloat sx, jfloat sy, jfloat px, jfloat py) {
+         SkScalar sx_ = SkFloatToScalar(sx);
+         SkScalar sy_ = SkFloatToScalar(sy);
+         SkScalar px_ = SkFloatToScalar(px);
+@@ -62,7 +72,7 @@ public:
+         obj->setScale(sx_, sy_, px_, py_);
+     }
+  
+-    static void setScale__FF(JNIEnv* env, jobject clazz, SkMatrix* obj, jfloat sx, jfloat sy) {
++    static void DALVIK_JNI_ABI setScale__FF(JNIEnv* env, jobject clazz, SkMatrix* obj, jfloat sx, jfloat sy) {
+         SkScalar sx_ = SkFloatToScalar(sx);
+         SkScalar sy_ = SkFloatToScalar(sy);
+         obj->setScale(sx_, sy_);
+@@ -316,7 +326,7 @@ public:
+         return rectStaysRect;
+     }
+  
+-    static jfloat mapRadius(JNIEnv* env, jobject clazz, SkMatrix* matrix, jfloat radius) {
++    static jfloat DALVIK_JNI_ABI mapRadius(JNIEnv* env, jobject clazz, SkMatrix* matrix, jfloat radius) {
+         return SkScalarToFloat(matrix->mapRadius(SkFloatToScalar(radius)));
+     }
+  
+@@ -408,4 +418,6 @@ int register_android_graphics_Matrix(JNIEnv* env) {
+     return result;
+ }
+ 
++#undef DALVIK_JNI_ABI
++
+ }
