@@ -21,7 +21,7 @@ the occasional crash.
 | Area | Status |
 | --- | --- |
 | Boot | Luma3DS chainload (hold D-pad DOWN at power-on), the Eclair boot animation and boot sound, then the Launcher2 home screen |
-| Display | Bottom screen 320x240 for Android, software-rendered (PixelFlinger). Top screen is the kernel console |
+| Display | Bottom screen 320x240 for Android, GPU accelerated. Top screen is the kernel console |
 | Input | Touchscreen, D-pad, circle pad (works as a trackball), A/B/X/Y, START, SELECT and HOME. LatinIME on-screen keyboard with its dictionary |
 | Wi-Fi | 2.4 GHz networks, open or WPA/WPA2-Personal. Networks are remembered |
 | Calls and texts | 3DSTelco "mobile data": a phone number, calls in both directions, texts, missed-call notifications, call log and voicemail, all over Wi-Fi |
@@ -36,8 +36,6 @@ the occasional crash.
 
 ### Not working or not planned yet
 
-- **No GPU acceleration.** Everything is drawn in software, so big pages and
-  animations are slow.
 - **No sleep mode.** The console never suspends. Power it off when you are done.
 - **No cellular radio.** The 3DS has none. "Mobile data" here means 3DSTelco
   over Wi-Fi (see below).
@@ -70,7 +68,7 @@ the occasional crash.
 
 You need:
 
-- a New Nintendo 3DS XL with [Luma3DS](https://github.com/LumaTeam/Luma3DS)
+- a Nintendo 3DS with [Luma3DS](https://github.com/LumaTeam/Luma3DS)
   custom firmware installed;
 - an SD card with a few hundred MB free;
 - a 2.4 GHz Wi-Fi network, for anything online.
@@ -204,7 +202,7 @@ dump their own. Everything goes into
 | `3ds/dspfirm.cdc` | Nothing yet (optional) | DSP1 homebrew |
 | `regulatory.db`, `regulatory.db.p7s` | Wi-Fi channel rules | wireless-regdb, not Nintendo's |
 
-**Wi-Fi firmware.** The New 3DS Wi-Fi chip (an Atheros AR6014) boots from four
+**Wi-Fi firmware.** The 3DS Wi-Fi chip (an Atheros AR6014) boots from four
 blobs inside the NWM system module, title `0004013000002D02`. Dump it with
 [GodMode9](https://github.com/d0k3/GodMode9):
 
