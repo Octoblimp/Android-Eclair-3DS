@@ -46,8 +46,6 @@ the occasional crash.
   only.
 - **The SD card stays mounted.** There is no USB storage mode and no unmount
   button. Power off before you take the card out.
-- **Hardware tested on a New 3DS XL only.** Old 3DS, 2DS and New 2DS XL are
-  untested.
 
 ## Controls
 
