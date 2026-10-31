@@ -72,18 +72,18 @@ You need:
 - a 2.4 GHz Wi-Fi network, for anything online.
 
 Steps:
-
-1. Download `android3ds_a1.zip` from the
+1. Do a NAND Backup. (Open GM9, press Home, then Scripts, then GM9 megascript, then press NAND backup options. Then follow the on-screen prompts.)
+2. Download `android3ds_a1.zip` from the
    [Releases page](https://github.com/Octoblimp/Android-Eclair-3DS/releases),
    or build it yourself (see Building). The release zip is ready to use: it
    already has the firmware the console needs, so you can skip the Firmware
    section.
-2. Extract it to the **root** of the SD card. Its `linux/` and
+3. Extract it to the **root** of the SD card. Its `linux/` and
    `luma/payloads/` folders merge with what is already there. Do not delete
    your existing `luma/` folder.
-3. Put the card back. Hold **D-pad DOWN** while you press POWER. Luma3DS
+4. Put the card back. Hold **D-pad DOWN** while you press POWER. Luma3DS
    starts `luma/payloads/down_firm_linux_loader.firm`, which boots Android3DS.
-4. To go back to the normal 3DS system, power off (hold START) and turn the
+5. To go back to the normal 3DS system, power off (hold START) and turn the
    console on without holding anything.
 
 To update, extract the newer release zip over the old one the same way.
